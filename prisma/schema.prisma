@@ -4,6 +4,12 @@
 // (@@map / @map) para que coincidan exactamente con schema.sql; los nombres
 // de modelo y campo en el código quedan en PascalCase/camelCase como es
 // convención de Prisma.
+//
+// Prisma ORM 7: el generador se queda como "prisma-client-js" (sin "output")
+// a propósito, por compatibilidad con Turbopack en Next.js 16 — la versión
+// nueva "prisma-client" genera el cliente fuera de node_modules y eso hace
+// que Turbopack pierda la referencia al runtime en SSR. Además, desde v7 la
+// URL de conexión ya NO va en este archivo: vive en prisma.config.ts.
 
 generator client {
   provider = "prisma-client-js"
@@ -11,8 +17,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 // ------------------------------------------------------------
