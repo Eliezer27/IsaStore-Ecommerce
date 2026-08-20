@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // JS/CSS de terceros copiados tal cual del template (IsaWebPlantilla) a
+    // public/assets — no es código nuestro, no tiene sentido lintearlo.
+    "public/assets/**",
   ]),
 ]);
 

@@ -22,13 +22,30 @@ const pool =
     connectionString: process.env.DATABASE_URL,
   });
 
+// node-postgres emite un evento "error" en el Pool cuando un cliente inactivo
+// pierde la conexión (ej. DATABASE_URL todavía apunta a un Postgres de
+// relleno que no existe). Si nadie escucha ese evento, Node lo trata como una
+// excepción no capturada y puede tumbar el server de "next dev" entero. Este
+// listener evita eso — el error real ya se maneja donde se hace cada query
+// (los try/catch de las páginas).
+if (!globalForPrisma.pgPool) {
+  pool.on("error", (err) => {
+    console.warn("[db] conexión perdida/no disponible:", err.message);
+  });
+}
+
 const adapter = new PrismaPg(pool);
 
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
     adapter,
-    log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
+    // Sin logging propio de Prisma: cada página que llama a Prisma ya envuelve
+    // la query en try/catch y registra un solo aviso corto si falla (ver
+    // getFeaturedProducts/getProducts/getProduct/getPosts). Esto evita el
+    // volcado largo y en rojo de Prisma en la terminal cuando todavía no hay
+    // una base de datos real conectada.
+    log: [],
   });
 
 if (process.env.NODE_ENV !== "production") {

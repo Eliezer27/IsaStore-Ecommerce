@@ -18,6 +18,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <link rel="stylesheet" href="/assets/css/bootstrap.min.css" />
         <link rel="stylesheet" href="/assets/css/animate.css" />
         <link rel="stylesheet" href="/assets/css/main.css" />
+        {/* Iconos Phosphor (clases ph / ph-bold / ph-fill usadas en toda la
+            plantilla). El template original los inyectaba con JS
+            (assets/js/phosphor-icon.js) desde este mismo CDN; acá se cargan
+            directo como <link>, que es más simple y funciona igual con SSR. */}
+        <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css" />
+        <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css" />
+        <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css" />
       </head>
       <body>
         <SiteHeader />
