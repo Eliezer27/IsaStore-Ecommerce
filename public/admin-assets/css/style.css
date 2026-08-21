@@ -4534,6 +4534,21 @@ span.select2-container.select2-container--default.select2-container--open {
     color: #FF92C2
 }
 
+/* Fix: en la plantilla original este <a> de nivel superior (Dashboard,
+   Ventas, y los encabezados de submenú como Productos/Usuarios) nunca
+   tenía display:block/flex — un <a> es "inline" por defecto en el
+   navegador, así que el fondo de :hover/.active/.submenu.active solo
+   cubría el ancho del ícono+texto en vez de toda la fila del sidebar,
+   dejando un espacio en blanco visible a la derecha. Los links anidados
+   dentro del submenú (.sidebar-menu>ul>li.submenu ul li a, más abajo) sí
+   traían display:block en el original; a este nivel superior le faltaba. */
+.sidebar .sidebar-menu>ul>li>a {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    box-sizing: border-box;
+}
+
 .sidebar .sidebar-menu>ul>li>a svg {
     width: 18px
 }
