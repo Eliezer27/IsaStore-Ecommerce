@@ -74,16 +74,21 @@ export default function AdminSidebar() {
               const sectionActive = section.links?.some((l) => pathname.startsWith(l.href));
               return (
                 <li key={section.label} className={`submenu ${sectionActive ? "active" : ""}`}>
-                  {/* d-flex + marginLeft:auto en la flechita en vez del
-                      ::before de Font Awesome que trae la plantilla: ese
-                      ícono depende de position:absolute relativo al <a> y
-                      de que la fuente de iconos cargue bien, y terminaba
-                      renderizándose encimado con el texto. Con flexbox no
-                      hay ambigüedad de posición. */}
+                  {/* script.js (jQuery) es quien realmente abre/cierra este
+                      submenú al hacer click y le agrega/quita las clases
+                      "active subdrop" al <a> — lo hace por fuera de React,
+                      antes de que hidrate, así que React siempre iba a ver
+                      un className distinto al que renderizó en el server.
+                      suppressHydrationWarning en el <a> y el <ul> anidado
+                      le dice a React "confía en el DOM tal cual está para
+                      estos dos nodos", que es justo el escape hatch pensado
+                      para este caso (scripts de terceros que tocan el DOM
+                      antes de hidratar). */}
                   <a
                     href="#"
                     onClick={(e) => e.preventDefault()}
                     className="d-flex align-items-center"
+                    suppressHydrationWarning
                   >
                     <img src={`/admin-assets/img/icons/${section.icon}`} alt="" />
                     <span> {section.label}</span>
@@ -102,11 +107,15 @@ export default function AdminSidebar() {
                         flexShrink: 0,
                         transform: sectionActive ? "rotate(90deg)" : undefined,
                       }}
+                      suppressHydrationWarning
                     >
                       <polyline points="9 18 15 12 9 6" />
                     </svg>
                   </a>
-                  <ul style={sectionActive ? { display: "block" } : undefined}>
+                  <ul
+                    style={sectionActive ? { display: "block" } : undefined}
+                    suppressHydrationWarning
+                  >
                     {section.links?.map((link) => (
                       <li key={link.href}>
                         <a
