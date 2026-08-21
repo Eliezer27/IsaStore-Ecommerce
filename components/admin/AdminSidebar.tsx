@@ -69,7 +69,7 @@ export default function AdminSidebar() {
               const sectionActive = section.links?.some((l) => pathname.startsWith(l.href));
               return (
                 <li key={section.label} className={`submenu ${sectionActive ? "active" : ""}`}>
-                  <a href="javascript:void(0);">
+                  <a href="#" onClick={(e) => e.preventDefault()}>
                     <img src={`/admin-assets/img/icons/${section.icon}`} alt="" />
                     <span> {section.label}</span>
                     <span className="menu-arrow" />

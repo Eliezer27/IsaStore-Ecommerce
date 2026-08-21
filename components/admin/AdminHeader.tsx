@@ -20,7 +20,7 @@ export default function AdminHeader() {
         <a href="/admin" className="logo-small">
           <img src="/admin-assets/img/icon/ICONO.png" alt="IsaStore Admin" />
         </a>
-        <a id="toggle_btn" href="javascript:void(0);" />
+        <a id="toggle_btn" href="#" onClick={(e) => e.preventDefault()} />
       </div>
 
       <a id="mobile_btn" className="mobile_btn" href="#sidebar">
@@ -52,7 +52,8 @@ export default function AdminHeader() {
 
         <li className="nav-item dropdown has-arrow main-drop">
           <a
-            href="javascript:void(0);"
+            href="#"
+            onClick={(e) => e.preventDefault()}
             className="dropdown-toggle nav-link userset"
             data-bs-toggle="dropdown"
           >

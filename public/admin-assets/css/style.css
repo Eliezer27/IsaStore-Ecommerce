@@ -1,4 +1,10 @@
-@import "../../../../css2";
+/* Este @import venía roto en el zip original (apuntaba a
+   "../../../../css2", una ruta relativa que no existe — probablemente
+   quedó mal exportado desde donde sea que se descargó la plantilla). El
+   resto del CSS referencia "nunito, sans-serif" y "roboto, sans-serif"
+   como fuente principal, así que se reconstruye el import real de Google
+   Fonts para esas dos. */
+@import url("https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=Roboto:wght@400;500;700&display=swap");
 
 .css-equal-content,
 .css-equal-heights {
