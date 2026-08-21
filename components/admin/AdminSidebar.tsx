@@ -63,9 +63,27 @@ export default function AdminSidebar() {
                 const active = pathname === section.href;
                 return (
                   <li key={section.label} className={active ? "active" : ""}>
-                    <a href={section.href}>
+                    <a href={section.href} className="d-flex align-items-center">
                       <img src={`/admin-assets/img/icons/${section.icon}`} alt="" />
                       <span> {section.label}</span>
+                      {/* Chevron decorativo: en la referencia que pasó el
+                          usuario, TODAS las opciones de nivel superior
+                          muestran una flechita a la derecha, tengan o no
+                          submenú — acá no abre nada, solo visual. */}
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        style={{ marginLeft: "auto", flexShrink: 0 }}
+                      >
+                        <polyline points="9 18 15 12 9 6" />
+                      </svg>
                     </a>
                   </li>
                 );
