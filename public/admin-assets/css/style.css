@@ -3539,32 +3539,35 @@ div.dataTables_wrapper div.dataTables_info {
     justify-content: center
 }
 
-/* El usuario pidió el logo más grande (no cabe bien en los 60px del
-   header sin recortarse), así que se saca del flujo normal con
-   position:absolute — puede ser más grande que su caja sin estirar el
-   header ni empujar el buscador/usuario de la derecha. object-fit:cover
-   + border-radius:50% lo mantienen circular sin distorsión. */
 .header .header-left .logo {
-    position: absolute;
-    top: 6px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 1002;
+    display: inline-flex;
+    align-items: center;
     line-height: 0
 }
 
+/* Fix: "width: 140px" sin height/object-fit asumía un logotipo ancho y
+   bajo. ICONO.png es un avatar circular casi cuadrado, así que a 140px
+   de ancho también quedaba ~140px de alto — más del doble de los 60px
+   de esta caja — y se cortaba/sobresalía por los bordes. Se fija un
+   contenedor circular chico (44px) con object-fit:cover para que la
+   imagen se recorte de forma proporcional en vez de desbordar. */
 .header .header-left .logo img {
-    width: 110px;
-    height: 110px;
+    width: 44px;
+    height: 44px;
+    max-width: 100%;
     border-radius: 50%;
-    object-fit: cover;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, .15)
+    object-fit: cover
 }
 
 @media(max-width:991px) {
+    .header .header-left .logo {
+        text-align: center;
+        width: 100%
+    }
+
     .header .header-left .logo img {
-        width: 90px;
-        height: 90px
+        width: 44px;
+        height: 44px
     }
 }
 
@@ -4533,10 +4536,7 @@ span.select2-container.select2-container--default.select2-container--open {
 }
 
 .sidebar .sidebar-menu {
-    /* padding-top más grande a propósito: el logo circular del header
-       "cuelga" grande y sobresale hacia abajo (ver .header-left .logo),
-       este espacio evita que Dashboard quede tapado debajo del avatar. */
-    padding: 130px 20px 20px 20px
+    padding: 20px
 }
 
 .sidebar .sidebar-menu>ul>li {
