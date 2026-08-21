@@ -3529,16 +3529,34 @@ div.dataTables_wrapper div.dataTables_info {
     -webkit-transition: all .2s ease;
     -ms-transition: all .2s ease;
     transition: all .2s ease;
-    border-right: 1px solid #e8ebed
+    border-right: 1px solid #e8ebed;
+    /* Fix: sin display:flex, el <img> del logo (ICONO.png, un avatar
+       circular, no un logotipo ancho y bajo como el de la plantilla
+       original) no se centraba verticalmente dentro de esta caja de
+       60px — quedaba pegado arriba y se cortaba/sobresalía por abajo. */
+    display: flex;
+    align-items: center;
+    justify-content: center
 }
 
 .header .header-left .logo {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
     line-height: 0
 }
 
+/* Fix: "width: 140px" sin height/object-fit asumía un logotipo ancho y
+   bajo. ICONO.png es un avatar circular casi cuadrado, así que a 140px
+   de ancho también quedaba ~140px de alto — más del doble de los 60px
+   de esta caja — y se cortaba/sobresalía por los bordes. Se fija un
+   contenedor circular chico (44px) con object-fit:cover para que la
+   imagen se recorte de forma proporcional en vez de desbordar. */
 .header .header-left .logo img {
-    width: 140px
+    width: 44px;
+    height: 44px;
+    max-width: 100%;
+    border-radius: 50%;
+    object-fit: cover
 }
 
 @media(max-width:991px) {
@@ -3548,7 +3566,8 @@ div.dataTables_wrapper div.dataTables_info {
     }
 
     .header .header-left .logo img {
-        width: 140px
+        width: 44px;
+        height: 44px
     }
 }
 
@@ -4521,7 +4540,12 @@ span.select2-container.select2-container--default.select2-container--open {
 }
 
 .sidebar .sidebar-menu>ul>li {
-    margin-bottom: 10px
+    margin-bottom: 10px;
+    /* Refuerzo: el <li> ("contenedor" de cada opción) también explícito
+       a 100% del ancho del <ul>/.sidebar-menu, por si algo más adelante
+       vuelve a depender de un ancho "auto" en vez de flex. */
+    width: 100%;
+    box-sizing: border-box
 }
 
 /* Fix: era ".li.active a" (descendiente, sin ">") — eso hace match con
