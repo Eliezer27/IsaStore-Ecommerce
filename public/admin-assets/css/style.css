@@ -3539,36 +3539,35 @@ div.dataTables_wrapper div.dataTables_info {
     justify-content: center
 }
 
-/* Cambio de diseño: el usuario pasó una referencia donde el avatar
-   circular es grande y "cuelga" desde el header, sobresaliendo hacia
-   abajo por encima del sidebar (en vez de ir chico y contenido dentro
-   de los 60px del header). Para lograr eso sin romper el layout ni
-   estirar el header (que tiene el buscador/usuario a la derecha), el
-   logo se saca del flujo normal (position:absolute) — así puede ser
-   más grande que su caja de 60px sin empujar nada. object-fit:cover +
-   border-radius:50% aseguran que la imagen se recorte en círculo
-   perfecto sin distorsión, en vez de desbordar/aplastarse. */
 .header .header-left .logo {
-    position: absolute;
-    top: 6px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 1002;
+    display: inline-flex;
+    align-items: center;
     line-height: 0
 }
 
+/* Fix: "width: 140px" sin height/object-fit asumía un logotipo ancho y
+   bajo. ICONO.png es un avatar circular casi cuadrado, así que a 140px
+   de ancho también quedaba ~140px de alto — más del doble de los 60px
+   de esta caja — y se cortaba/sobresalía por los bordes. Se fija un
+   contenedor circular chico (44px) con object-fit:cover para que la
+   imagen se recorte de forma proporcional en vez de desbordar. */
 .header .header-left .logo img {
-    width: 110px;
-    height: 110px;
+    width: 44px;
+    height: 44px;
+    max-width: 100%;
     border-radius: 50%;
-    object-fit: cover;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, .15)
+    object-fit: cover
 }
 
 @media(max-width:991px) {
+    .header .header-left .logo {
+        text-align: center;
+        width: 100%
+    }
+
     .header .header-left .logo img {
-        width: 90px;
-        height: 90px
+        width: 44px;
+        height: 44px
     }
 }
 
@@ -4537,11 +4536,7 @@ span.select2-container.select2-container--default.select2-container--open {
 }
 
 .sidebar .sidebar-menu {
-    /* padding-top más grande a propósito: el logo circular del header
-       ahora "cuelga" grande y sobresale hacia abajo (ver .header-left
-       .logo), este espacio evita que Dashboard/Productos/etc. queden
-       tapados debajo del avatar. */
-    padding: 130px 20px 20px 20px
+    padding: 20px
 }
 
 .sidebar .sidebar-menu>ul>li {
@@ -4564,20 +4559,10 @@ span.select2-container.select2-container--default.select2-container--open {
     color: #fff
 }
 
-/* Cambio de diseño: en vez de fondo blanco + ícono/texto rosa que solo
-   se vuelve rosa sólido en :hover/.active, ahora cada opción del menú
-   es una "pastilla" rosa sólida siempre (como en la referencia que
-   pasó el usuario) — texto e ícono blancos por defecto. */
 .sidebar .sidebar-menu>ul>li>a {
     padding: 10px 15px;
     position: relative;
-    color: #fff;
-    background: #FF92C2;
-    border-radius: 12px
-}
-
-.sidebar .sidebar-menu>ul>li>a img {
-    filter: brightness(0) invert(1)
+    color: #FF92C2
 }
 
 /* Fix: en la plantilla original este <a> de nivel superior (Dashboard,
@@ -4606,7 +4591,7 @@ span.select2-container.select2-container--default.select2-container--open {
 .sidebar .sidebar-menu>ul>li>a:hover {
     background: #FF92C2;
     color: #fff;
-    border-radius: 12px
+    border-radius: 5px
 }
 
 .sidebar .sidebar-menu>ul>li>a:hover img {
@@ -4617,14 +4602,10 @@ span.select2-container.select2-container--default.select2-container--open {
     color: #fff
 }
 
-/* a.active (distinto de li.active>a de más arriba) lo pone script.js
-   sobre el link real de la página actual dentro de un submenú ya
-   abierto — se deja un tono más oscuro para diferenciarlo del resto de
-   pastillas rosas. */
 .sidebar .sidebar-menu>ul>li>a.active {
     background: #2B1B22;
     color: #fff;
-    border-radius: 12px
+    border-radius: 5px
 }
 
 .sidebar .sidebar-menu>ul>li>a.active img {
@@ -4638,8 +4619,8 @@ span.select2-container.select2-container--default.select2-container--open {
 .sidebar .sidebar-menu>ul>li>a span {
     margin-left: 10px;
     font-size: 15px;
-    font-weight: 600;
-    color: #fff
+    font-weight: 500;
+    color: #2B1B22
 }
 
 .sidebar .sidebar-menu>ul>li>a .menu-arrow {
@@ -4676,7 +4657,7 @@ span.select2-container.select2-container--default.select2-container--open {
    links del submenú anidado. */
 .sidebar .sidebar-menu>ul>li.active>a {
     background: #FF92C2;
-    border-radius: 12px
+    border-radius: 5px
 }
 
 /* Fix: brightness(4) invert(1) no da blanco puro — brightness(4) sobre-
