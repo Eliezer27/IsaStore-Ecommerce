@@ -4670,13 +4670,19 @@ span.select2-container.select2-container--default.select2-container--open {
     padding: 8px 8px 8px 40px
 }
 
+/* Fix: la plantilla original pintaba el link del submenú activo en
+   navy (#092c4c), pero el resto de la UI usa el rosa de marca (#FF92C2)
+   para indicar "seleccionado" (hover, encabezados activos, etc.) — se
+   iguala aquí para que la página actual dentro de un submenú (ej.
+   Categorías) se vea rosa, no navy. */
 .sidebar .sidebar-menu>ul>li.submenu ul li a.active {
-    color: #092c4c
+    color: #FF92C2;
+    font-weight: 700
 }
 
 .sidebar .sidebar-menu>ul>li.submenu ul li a.active:after {
-    background: #092c4c;
-    border: 1px solid #092c4c
+    background: #FF92C2;
+    border: 1px solid #FF92C2
 }
 
 .sidebar .sidebar-menu>ul>li.submenu ul li a::after {
