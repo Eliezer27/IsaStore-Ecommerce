@@ -3533,10 +3533,13 @@ div.dataTables_wrapper div.dataTables_info {
     /* Fix: sin display:flex, el <img> del logo (ICONO.png, un avatar
        circular, no un logotipo ancho y bajo como el de la plantilla
        original) no se centraba verticalmente dentro de esta caja de
-       60px — quedaba pegado arriba y se cortaba/sobresalía por abajo. */
+       60px — quedaba pegado arriba y se cortaba/sobresalía por abajo.
+       justify-content:space-between (en vez de center) separa el logo
+       a la izquierda del botón/ícono (#toggle_btn) a la derecha, en vez
+       de agruparlos juntos en el centro. */
     display: flex;
     align-items: center;
-    justify-content: center
+    justify-content: space-between
 }
 
 .header .header-left .logo {
