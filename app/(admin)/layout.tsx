@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 
 // Root layout aparte del de la tienda (app/(site)/layout.tsx). Next.js
 // soporta "multiple root layouts" con route groups: como (admin) y (site)
@@ -37,20 +38,27 @@ export default function AdminRootLayout({
       <body>
         {children}
 
-        {/* Igual que en el HTML original: scripts al final del body, en
-            este orden (jquery antes que todo lo que depende de jquery). Se
-            usan <script src> planos (no next/script) para que el orden de
-            ejecución sea determinístico, igual que en una página estática. */}
-        <script src="/admin-assets/js/jquery-3.6.0.min.js" />
-        <script src="/admin-assets/js/feather.min.js" />
-        <script src="/admin-assets/js/jquery.slimscroll.min.js" />
-        <script src="/admin-assets/js/jquery.dataTables.min.js" />
-        <script src="/admin-assets/js/dataTables.bootstrap4.min.js" />
-        <script src="/admin-assets/js/bootstrap.bundle.min.js" />
-        <script src="/admin-assets/plugins/select2/js/select2.min.js" />
-        <script src="/admin-assets/plugins/sweetalert/sweetalert2.all.min.js" />
-        <script src="/admin-assets/plugins/sweetalert/sweetalerts.min.js" />
-        <script src="/admin-assets/js/script.js" />
+        {/* React 19 no ejecuta un <script> plano puesto directamente en el
+            árbol (avisa "Scripts inside React components are never
+            executed"). next/script con strategy="beforeInteractive" es la
+            forma soportada de cargar JS clásico desde el root layout — y
+            solo funciona en el root layout, que es justo dónde está esto.
+            El orden se mantiene (jquery antes que lo que depende de
+            jquery) porque Next respeta el orden de declaración dentro de
+            la misma estrategia. */}
+        <Script src="/admin-assets/js/jquery-3.6.0.min.js" strategy="beforeInteractive" />
+        {/* feather.min.js se mantiene aunque ya no usamos data-feather
+            (ver DashIcon.tsx) porque script.js llama a feather.replace()
+            sin guardar con un if — si no está cargado, tira ReferenceError
+            y frena el resto de la inicialización (dropdowns, sidebar, etc). */}
+        <Script src="/admin-assets/js/feather.min.js" strategy="beforeInteractive" />
+        <Script src="/admin-assets/js/jquery.dataTables.min.js" strategy="beforeInteractive" />
+        <Script src="/admin-assets/js/dataTables.bootstrap4.min.js" strategy="beforeInteractive" />
+        <Script src="/admin-assets/js/bootstrap.bundle.min.js" strategy="beforeInteractive" />
+        <Script src="/admin-assets/plugins/select2/js/select2.min.js" strategy="beforeInteractive" />
+        <Script src="/admin-assets/plugins/sweetalert/sweetalert2.all.min.js" strategy="beforeInteractive" />
+        <Script src="/admin-assets/plugins/sweetalert/sweetalerts.min.js" strategy="beforeInteractive" />
+        <Script src="/admin-assets/js/script.js" strategy="beforeInteractive" />
       </body>
     </html>
   );
