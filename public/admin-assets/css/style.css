@@ -4627,12 +4627,22 @@ span.select2-container.select2-container--default.select2-container--open {
     border-radius: 5px
 }
 
+/* Fix: brightness(4) invert(1) no da blanco puro — brightness(4) sobre-
+   expone el ícono a casi blanco y luego invert(1) lo vuelve casi negro,
+   justo lo contrario de lo que se ve en :hover (brightness(0) invert(1),
+   la combinación correcta para forzar un ícono blanco sin importar su
+   color original). Se iguala aquí para que el ítem activo se vea igual
+   de blanco que en hover. */
 .sidebar .sidebar-menu>ul>li.active a img {
-    filter: brightness(4) invert(1)
+    filter: brightness(0) invert(1)
 }
 
+/* Fix: esta regla pisaba el color:#fff que ya se define arriba en
+   ".sidebar-menu>ul>li.active a" (línea ~4527) — el <span> es más
+   específico y ganaba, dejando el texto en gris oscuro sobre el fondo
+   rosa en vez de blanco. */
 .sidebar .sidebar-menu>ul>li.active a span {
-    color: #2B1B22
+    color: #fff
 }
 
 .sidebar .sidebar-menu>ul>li.submenu ul {
