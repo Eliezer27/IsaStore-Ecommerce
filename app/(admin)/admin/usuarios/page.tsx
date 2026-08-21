@@ -34,6 +34,9 @@ export default async function AdminUsersPage() {
 
       <div className="card">
         <div className="card-body">
+          {users.length === 0 ? (
+            <p className="text-center text-muted py-4 mb-0">No hay usuarios todavía.</p>
+          ) : (
           <div className="table-responsive">
             <table className="table datanew">
               <thead>
@@ -67,16 +70,10 @@ export default async function AdminUsersPage() {
                     <td>{new Date(u.createdAt).toLocaleDateString("es-NI")}</td>
                   </tr>
                 ))}
-                {users.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="text-center text-muted py-4">
-                      No hay usuarios todavía.
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
+          )}
         </div>
       </div>
     </>

@@ -42,7 +42,16 @@ export default async function AdminProductsPage() {
 
       <div className="card">
         <div className="card-body">
+          {products.length === 0 ? (
+            <p className="text-center text-muted py-4 mb-0">
+              No hay productos todavía. Usa &ldquo;Agregar producto&rdquo; para crear el
+              primero.
+            </p>
+          ) : (
           <div className="table-responsive">
+            {/* Clase "datanew" solo con filas reales — con la tabla vacía,
+                jQuery DataTables se cuelga ("_DT_CellIndex") al inicializarse
+                sobre un colspan de placeholder. */}
             <table className="table datanew">
               <thead>
                 <tr>
@@ -93,17 +102,10 @@ export default async function AdminProductsPage() {
                     </td>
                   </tr>
                 ))}
-                {products.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="text-center text-muted py-4">
-                      No hay productos todavía. Usa &ldquo;Agregar producto&rdquo; para
-                      crear el primero.
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
+          )}
         </div>
       </div>
     </>

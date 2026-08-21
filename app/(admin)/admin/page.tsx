@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import AdminSalesChart from "@/components/admin/AdminSalesChart";
+import DashIcon from "@/components/admin/DashIcon";
 
 export const dynamic = "force-dynamic";
 
@@ -131,21 +133,6 @@ export default async function AdminDashboardPage() {
   ];
 
   const months = monthlySales(stats.paidOrders as { total: unknown; createdAt: Date }[]);
-  const chartScriptHtml = `
-    window.addEventListener("load", function () {
-      if (!window.ApexCharts) return;
-      var el = document.getElementById("isastore_sales_chart");
-      if (!el) return;
-      new window.ApexCharts(el, {
-        chart: { type: "bar", height: 300, toolbar: { show: false }, fontFamily: "Nunito, sans-serif" },
-        series: [{ name: "Ventas (C$)", data: ${JSON.stringify(months.map((m) => m.total))} }],
-        xaxis: { categories: ${JSON.stringify(months.map((m) => m.label))} },
-        colors: ["#FF92C2"],
-        plotOptions: { bar: { columnWidth: "50%", borderRadius: 4 } },
-        dataLabels: { enabled: false },
-      }).render();
-    });
-  `;
 
   return (
     <>
@@ -190,7 +177,7 @@ export default async function AdminDashboardPage() {
                 <h5>{c.label}</h5>
               </div>
               <div className="dash-imgs">
-                <i data-feather={c.icon} />
+                <DashIcon name={c.icon} />
               </div>
             </div>
           </div>
@@ -204,9 +191,10 @@ export default async function AdminDashboardPage() {
               <h5 className="card-title mb-0">Ventas por mes</h5>
             </div>
             <div className="card-body">
-              <div id="isastore_sales_chart" />
-              {/* eslint-disable-next-line @next/next/no-sync-scripts */}
-              <script dangerouslySetInnerHTML={{ __html: chartScriptHtml }} />
+              <AdminSalesChart
+                labels={months.map((m) => m.label)}
+                values={months.map((m) => m.total)}
+              />
             </div>
           </div>
         </div>
@@ -217,42 +205,43 @@ export default async function AdminDashboardPage() {
               <h4 className="card-title mb-0">Productos recientes</h4>
             </div>
             <div className="card-body">
-              <div className="table-responsive dataview">
-                <table className="table datatable">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Producto</th>
-                      <th>Precio</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {stats.recentProducts.map((p, i) => (
-                      <tr key={p.id}>
-                        <td>{i + 1}</td>
-                        <td className="productimgname">
-                          {p.images[0]?.url ? (
-                            <a className="product-img" href={`/producto/${p.slug}`} target="_blank">
-                              <img src={p.images[0].url} alt={p.name} />
-                            </a>
-                          ) : null}
-                          <a href={`/admin/productos/${p.id}/editar`}>{p.name}</a>
-                        </td>
-                        <td>
-                          {p.currency} {Number(p.price).toFixed(2)}
-                        </td>
-                      </tr>
-                    ))}
-                    {stats.recentProducts.length === 0 && (
+              {stats.recentProducts.length === 0 ? (
+                <p className="text-center text-muted py-3 mb-0">Sin productos todavía.</p>
+              ) : (
+                <div className="table-responsive dataview">
+                  {/* Clase "datatable" solo cuando hay filas reales: la
+                      plantilla la inicializa con jQuery DataTables, que se
+                      cuelga ("_DT_CellIndex") si la tabla no tiene más que
+                      una fila vacía de placeholder. */}
+                  <table className="table datatable">
+                    <thead>
                       <tr>
-                        <td colSpan={3} className="text-center text-muted py-3">
-                          Sin productos todavía.
-                        </td>
+                        <th>#</th>
+                        <th>Producto</th>
+                        <th>Precio</th>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {stats.recentProducts.map((p, i) => (
+                        <tr key={p.id}>
+                          <td>{i + 1}</td>
+                          <td className="productimgname">
+                            {p.images[0]?.url ? (
+                              <a className="product-img" href={`/producto/${p.slug}`} target="_blank">
+                                <img src={p.images[0].url} alt={p.name} />
+                              </a>
+                            ) : null}
+                            <a href={`/admin/productos/${p.id}/editar`}>{p.name}</a>
+                          </td>
+                          <td>
+                            {p.currency} {Number(p.price).toFixed(2)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         </div>

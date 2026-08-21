@@ -58,6 +58,9 @@ export default async function AdminCategoriesPage() {
         <div className="col-lg-8 col-12">
           <div className="card">
             <div className="card-body">
+              {categories.length === 0 ? (
+                <p className="text-center text-muted py-4 mb-0">No hay categorías todavía.</p>
+              ) : (
               <div className="table-responsive">
                 <table className="table datanew">
                   <thead>
@@ -83,16 +86,10 @@ export default async function AdminCategoriesPage() {
                         </td>
                       </tr>
                     ))}
-                    {categories.length === 0 && (
-                      <tr>
-                        <td colSpan={4} className="text-center text-muted py-4">
-                          No hay categorías todavía.
-                        </td>
-                      </tr>
-                    )}
                   </tbody>
                 </table>
               </div>
+              )}
             </div>
           </div>
         </div>

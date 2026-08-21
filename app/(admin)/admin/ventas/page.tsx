@@ -42,6 +42,9 @@ export default async function AdminSalesPage() {
 
       <div className="card">
         <div className="card-body">
+          {orders.length === 0 ? (
+            <p className="text-center text-muted py-4 mb-0">No hay pedidos todavía.</p>
+          ) : (
           <div className="table-responsive">
             <table className="table datanew">
               <thead>
@@ -84,16 +87,10 @@ export default async function AdminSalesPage() {
                     </td>
                   </tr>
                 ))}
-                {orders.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="text-center text-muted py-4">
-                      No hay pedidos todavía.
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
+          )}
         </div>
       </div>
     </>
