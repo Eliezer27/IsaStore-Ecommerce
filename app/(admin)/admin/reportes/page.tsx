@@ -220,7 +220,7 @@ export default async function AdminReportsPage({
 
   const kpis = [
     {
-      icon: "dinero.svg",
+      icon: "wallet1.svg",
       value: `C$${ingresosRango.toLocaleString("es-NI", { minimumFractionDigits: 2 })}`,
       label: "Ingresos (rango, pagados)",
     },

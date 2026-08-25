@@ -6504,6 +6504,16 @@ span.select2-container.select2-container--default.select2-container--open {
     border-radius: 50px
 }
 
+/* Los .svg de estos iconos no comparten tamaño intrínseco entre sí
+   (13px, 16px, 18px según el archivo), así que sin esto cada card del
+   dashboard/reportes se veía con un ícono de tamaño distinto y bastante
+   chico dentro del círculo de 48px. Se fuerza un tamaño uniforme más
+   grande para los cuatro. */
+.dash-widget .dash-widgetimg span img {
+    width: 26px;
+    height: 26px;
+}
+
 .dash-count {
     background:     #988A82;
     color: #fff;

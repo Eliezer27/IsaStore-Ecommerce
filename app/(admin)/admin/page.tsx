@@ -118,7 +118,7 @@ export default async function AdminDashboardPage() {
     { icon: "product.svg", value: stats.products, label: "Productos activos" },
     { icon: "sales1.svg", value: stats.orders, label: "Pedidos totales" },
     {
-      icon: "dinero.svg",
+      icon: "dollar-square.svg",
       value: `C$${stats.revenue.toLocaleString("es-NI", { minimumFractionDigits: 2 })}`,
       label: "Ventas pagadas",
     },
