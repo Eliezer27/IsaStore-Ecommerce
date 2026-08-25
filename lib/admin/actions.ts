@@ -143,17 +143,10 @@ async function uniqueCategorySlug(name: string): Promise<string> {
 
 export async function createCategory(formData: FormData) {
   const name = str(formData, "name");
-  const imageUrl = await resolveImageUrl(
-    formData,
-    "imageFile",
-    "imageUrl",
-    "categorias"
-  );
   await prisma.category.create({
     data: {
       name,
       slug: await uniqueCategorySlug(name),
-      imageUrl: imageUrl || null,
     },
   });
   revalidatePath("/admin/productos/categorias");
