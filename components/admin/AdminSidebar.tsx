@@ -37,7 +37,7 @@ const NAV: NavSection[] = [
   },
   {
     label: "Reportes",
-    icon: "dash1.svg",
+    icon: "printer.svg",
     href: "/admin/reportes",
   },
   {

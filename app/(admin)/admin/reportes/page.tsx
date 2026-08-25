@@ -330,7 +330,7 @@ export default async function AdminReportsPage({
 
               {buckets.length > 0 && (
                 <div className="table-responsive dataview mt-3">
-                  <table className={`table datanew${buckets.length > 1 ? " datatable" : ""}`}>
+                  <table className="table datatable">
                     <thead>
                       <tr>
                         <th>Periodo</th>
