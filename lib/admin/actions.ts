@@ -129,6 +129,18 @@ export async function deleteProduct(formData: FormData) {
 // ------------------------------------------------------------------
 // Categorías
 // ------------------------------------------------------------------
+// El slug "limpio" (ej. "ropa") es el que ya usa lib/categories.ts para
+// armar los links de categoría del sitio público (/shop?categoria=ropa).
+// Solo se le pega un sufijo random si ese slug limpio ya está en uso por
+// otra categoría — así, crear "Ropa", "Collares", etc. desde este mismo
+// formulario les deja el slug exacto que el resto del sitio espera, en
+// vez de uno tipo "ropa-m1h3d9x" que rompería ese filtro.
+async function uniqueCategorySlug(name: string): Promise<string> {
+  const base = slugify(name) || "categoria";
+  const existing = await prisma.category.findUnique({ where: { slug: base } });
+  return existing ? `${base}-${Date.now().toString(36)}` : base;
+}
+
 export async function createCategory(formData: FormData) {
   const name = str(formData, "name");
   const imageUrl = await resolveImageUrl(
@@ -140,7 +152,7 @@ export async function createCategory(formData: FormData) {
   await prisma.category.create({
     data: {
       name,
-      slug: `${slugify(name)}-${Date.now().toString(36)}`,
+      slug: await uniqueCategorySlug(name),
       imageUrl: imageUrl || null,
     },
   });
