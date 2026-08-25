@@ -38,27 +38,35 @@ export default function AdminRootLayout({
       <body>
         {children}
 
-        {/* React 19 no ejecuta un <script> plano puesto directamente en el
-            árbol (avisa "Scripts inside React components are never
-            executed"). next/script con strategy="beforeInteractive" es la
-            forma soportada de cargar JS clásico desde el root layout — y
-            solo funciona en el root layout, que es justo dónde está esto.
-            El orden se mantiene (jquery antes que lo que depende de
-            jquery) porque Next respeta el orden de declaración dentro de
-            la misma estrategia. */}
-        <Script src="/admin-assets/js/jquery-3.6.0.min.js" strategy="beforeInteractive" />
+        {/* Antes estos <Script> usaban strategy="beforeInteractive". Con
+            Next 16 + React 19 eso dispara en el overlay de dev "Encountered
+            a script tag while rendering React component" (bug conocido de
+            Next/React con beforeInteractive fuera del layout raíz físico
+            de app/ — afecta a cualquier uso de beforeInteractive en un
+            root layout de route group como este, ver issues de next-themes
+            / shadcn-ui / heroui con el mismo mensaje en Next 16.2+). Además,
+            beforeInteractive corre ANTES de que React termine de hidratar,
+            así que si algo tarda en pintar, jQuery/DataTables podían llegar
+            a tocar el DOM a mitad de la hidratación y generar un
+            "hydration error" en tablas .datanew/.datatable.
+            afterInteractive no tiene ninguna de las dos limitaciones (corre
+            después de hidratar, y no pasa por el mecanismo de Script que
+            dispara el warning) y sigue respetando el orden de declaración
+            entre scripts de la misma estrategia, así que jquery sigue
+            cargando antes que todo lo que depende de él. */}
+        <Script src="/admin-assets/js/jquery-3.6.0.min.js" strategy="afterInteractive" />
         {/* feather.min.js se mantiene aunque ya no usamos data-feather
             (ver DashIcon.tsx) porque script.js llama a feather.replace()
             sin guardar con un if — si no está cargado, tira ReferenceError
             y frena el resto de la inicialización (dropdowns, sidebar, etc). */}
-        <Script src="/admin-assets/js/feather.min.js" strategy="beforeInteractive" />
-        <Script src="/admin-assets/js/jquery.dataTables.min.js" strategy="beforeInteractive" />
-        <Script src="/admin-assets/js/dataTables.bootstrap4.min.js" strategy="beforeInteractive" />
-        <Script src="/admin-assets/js/bootstrap.bundle.min.js" strategy="beforeInteractive" />
-        <Script src="/admin-assets/plugins/select2/js/select2.min.js" strategy="beforeInteractive" />
-        <Script src="/admin-assets/plugins/sweetalert/sweetalert2.all.min.js" strategy="beforeInteractive" />
-        <Script src="/admin-assets/plugins/sweetalert/sweetalerts.min.js" strategy="beforeInteractive" />
-        <Script src="/admin-assets/js/script.js" strategy="beforeInteractive" />
+        <Script src="/admin-assets/js/feather.min.js" strategy="afterInteractive" />
+        <Script src="/admin-assets/js/jquery.dataTables.min.js" strategy="afterInteractive" />
+        <Script src="/admin-assets/js/dataTables.bootstrap4.min.js" strategy="afterInteractive" />
+        <Script src="/admin-assets/js/bootstrap.bundle.min.js" strategy="afterInteractive" />
+        <Script src="/admin-assets/plugins/select2/js/select2.min.js" strategy="afterInteractive" />
+        <Script src="/admin-assets/plugins/sweetalert/sweetalert2.all.min.js" strategy="afterInteractive" />
+        <Script src="/admin-assets/plugins/sweetalert/sweetalerts.min.js" strategy="afterInteractive" />
+        <Script src="/admin-assets/js/script.js" strategy="afterInteractive" />
       </body>
     </html>
   );
