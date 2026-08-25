@@ -25,7 +25,7 @@ export default function ProductForm({
   submitLabel: string;
 }) {
   return (
-    <form action={action}>
+    <form action={action} encType="multipart/form-data">
       <div className="card">
         <div className="card-body">
           <div className="row">
@@ -116,15 +116,42 @@ export default function ProductForm({
             <div className="col-lg-8 col-sm-6 col-12">
               <div className="mb-3">
                 <label className="form-label">
-                  URL de imagen <span className="text-muted">(opcional)</span>
+                  Imagen del producto <span className="text-muted">(opcional)</span>
                 </label>
-                <input
-                  type="url"
-                  name="imageUrl"
-                  className="form-control"
-                  placeholder="https://..."
-                  defaultValue={initial?.imageUrl ?? ""}
-                />
+                {initial?.imageUrl ? (
+                  <div className="mb-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={initial.imageUrl}
+                      alt="Imagen actual"
+                      style={{ maxHeight: 80, borderRadius: 6 }}
+                    />
+                  </div>
+                ) : null}
+                <div className="row g-2">
+                  <div className="col-md-6">
+                    <input
+                      type="url"
+                      name="imageUrl"
+                      className="form-control"
+                      placeholder="Pegar URL: https://..."
+                      defaultValue={initial?.imageUrl ?? ""}
+                    />
+                    <div className="form-text">Opción A: pega una URL de imagen.</div>
+                  </div>
+                  <div className="col-md-6">
+                    <input
+                      type="file"
+                      name="imageFile"
+                      className="form-control"
+                      accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+                    />
+                    <div className="form-text">
+                      Opción B: sube una imagen desde tu dispositivo (máx. 5MB). Si subes un
+                      archivo, este reemplaza a la URL de arriba.
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 

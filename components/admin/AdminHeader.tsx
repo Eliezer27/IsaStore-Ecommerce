@@ -62,11 +62,11 @@ export default function AdminHeader() {
               <span className="status online"></span>
             </span>
           </a>
-          <div className="dropdown-menu menu-drop-user">
+          <div className="dropdown-menu dropdown-menu-end menu-drop-user">
             <div className="profilename">
               <div className="profileset">
                 <span className="user-img">
-                  <img src="/admin-assets/img/profiles/avator1.jpg" alt="" />
+                  <img src="/admin-assets/img/icon/ICONO.png" alt="" />
                   <span className="status online"></span>
                 </span>
                 <div className="profilesets">

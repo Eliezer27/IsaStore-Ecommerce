@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slugify";
+import { hasUploadedFile, saveUploadedImage } from "@/lib/admin/upload";
 
 function num(formData: FormData, key: string, fallback = 0): number {
   const raw = formData.get(key);
@@ -15,13 +16,36 @@ function str(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
 }
 
+/**
+ * Resuelve la imagen a usar a partir de un formulario que ofrece dos
+ * opciones al usuario: subir un archivo ("imageFile") o pegar una URL
+ * ("imageUrl"). El archivo subido tiene prioridad si ambos vienen presentes.
+ */
+async function resolveImageUrl(
+  formData: FormData,
+  fileFieldKey: string,
+  urlFieldKey: string,
+  subdir: string
+): Promise<string> {
+  if (hasUploadedFile(formData, fileFieldKey)) {
+    const file = formData.get(fileFieldKey) as File;
+    return saveUploadedImage(file, subdir);
+  }
+  return str(formData, urlFieldKey);
+}
+
 // ------------------------------------------------------------------
 // Productos
 // ------------------------------------------------------------------
 export async function createProduct(formData: FormData) {
   const name = str(formData, "name");
   const categoryId = str(formData, "categoryId") || null;
-  const imageUrl = str(formData, "imageUrl");
+  const imageUrl = await resolveImageUrl(
+    formData,
+    "imageFile",
+    "imageUrl",
+    "productos"
+  );
 
   const product = await prisma.product.create({
     data: {
@@ -48,7 +72,12 @@ export async function createProduct(formData: FormData) {
 }
 
 export async function updateProduct(productId: string, formData: FormData) {
-  const imageUrl = str(formData, "imageUrl");
+  const imageUrl = await resolveImageUrl(
+    formData,
+    "imageFile",
+    "imageUrl",
+    "productos"
+  );
 
   await prisma.product.update({
     where: { id: productId },
@@ -102,11 +131,17 @@ export async function deleteProduct(formData: FormData) {
 // ------------------------------------------------------------------
 export async function createCategory(formData: FormData) {
   const name = str(formData, "name");
+  const imageUrl = await resolveImageUrl(
+    formData,
+    "imageFile",
+    "imageUrl",
+    "categorias"
+  );
   await prisma.category.create({
     data: {
       name,
       slug: `${slugify(name)}-${Date.now().toString(36)}`,
-      imageUrl: str(formData, "imageUrl") || null,
+      imageUrl: imageUrl || null,
     },
   });
   revalidatePath("/admin/productos/categorias");

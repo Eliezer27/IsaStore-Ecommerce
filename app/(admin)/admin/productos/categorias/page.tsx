@@ -36,16 +36,32 @@ export default async function AdminCategoriesPage() {
           <div className="card">
             <div className="card-body">
               <h6 className="mb-3">Nueva categoría</h6>
-              <form action={createCategory}>
+              <form action={createCategory} encType="multipart/form-data">
                 <div className="mb-3">
                   <label className="form-label">Nombre</label>
                   <input type="text" name="name" className="form-control" required />
                 </div>
                 <div className="mb-3">
                   <label className="form-label">
-                    URL de imagen <span className="text-muted">(opcional)</span>
+                    Imagen <span className="text-muted">(opcional)</span>
                   </label>
-                  <input type="url" name="imageUrl" className="form-control" />
+                  <input
+                    type="url"
+                    name="imageUrl"
+                    className="form-control mb-1"
+                    placeholder="Pegar URL: https://..."
+                  />
+                  <div className="form-text mb-2">Opción A: pega una URL de imagen.</div>
+                  <input
+                    type="file"
+                    name="imageFile"
+                    className="form-control"
+                    accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+                  />
+                  <div className="form-text">
+                    Opción B: sube una imagen desde tu dispositivo (máx. 5MB). Si subes un
+                    archivo, este reemplaza a la URL de arriba.
+                  </div>
                 </div>
                 <button type="submit" className="btn btn-submit w-100">
                   Crear categoría
