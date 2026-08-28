@@ -1,0 +1,4 @@
+# Normaliza los finales de línea a LF para todo el repo, sin importar el
+# core.autocrlf de cada máquina (Windows/Mac/Linux) — así Git deja de avisar
+# "LF will be replaced by CRLF" en cada archivo y todos ven el mismo diff.
+* text=auto eol=lf

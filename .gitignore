@@ -43,3 +43,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# carpeta de verificación de build (npm run build corrido a mano hacia
+# tmp/, ver README) — es salida generada, no código fuente
+/tmp/

@@ -1,32 +1,190 @@
-# IsaStore — Next.js
+# IsaStore
 
-Tienda en línea de accesorios y regalos (Nicaragua). Migración del template
-estático `IsaWebPlantilla` a Next.js 16 (App Router) + TypeScript + Prisma,
-según lo acordado en el documento de arquitectura del proyecto.
+Tienda en línea de accesorios y regalos (Nicaragua). El proyecto es una
+migración del template estático `IsaWebPlantilla` a una aplicación real con
+Next.js 16 (App Router) + TypeScript + Prisma + PostgreSQL (Supabase),
+según el documento de arquitectura acordado para el proyecto.
+
+## Objetivo
+
+Reemplazar el catálogo estático original por una aplicación con dos partes
+que comparten la misma base de datos:
+
+1. **La tienda pública** (`app/(site)`) — donde el cliente navega el
+   catálogo, arma su carrito, se registra/inicia sesión y hace el pedido.
+2. **El panel administrativo** (`app/(admin)`) — donde el staff y los
+   administradores de IsaStore cargan productos, revisan pedidos, ven
+   reportes de ventas y gestionan cuentas de otros miembros del equipo.
+
+No son dos proyectos separados: es una sola aplicación Next.js con dos
+grupos de rutas independientes, cada uno con su propio layout, su propia
+sesión de autenticación y sus propias reglas de acceso (ver
+[Los dos sistemas](#los-dos-sistemas)).
 
 ## Stack
 
-- Next.js 16 (App Router, TypeScript)
-- Bootstrap 5 (CSS del template original, servido desde `/public/assets`)
-- Prisma + PostgreSQL (Supabase)
-- Zustand (carrito, persistido en localStorage)
-- PayPal (`@paypal/react-paypal-js`) y Google Maps (`@react-google-maps/api`) — instalados, integración pendiente
+- **Next.js 16** (App Router, TypeScript, Turbopack)
+- **Prisma 7** + **PostgreSQL** (pensado para Supabase) — ver la nota sobre
+  Prisma 7 más abajo, trae cambios importantes respecto a versiones previas
+- **Supabase Auth** — login real de clientes y de staff/admin, con dos
+  sesiones independientes (ver más abajo)
+- **Zustand** — carrito y wishlist, persistidos en `localStorage`
+- **Bootstrap 5** — CSS del template original (tienda), servido desde
+  `/public/assets`; el panel admin usa una plantilla aparte (DreamsPOS) en
+  `/public/admin-assets`
+- **PayPal** (`@paypal/react-paypal-js`) y **Google Maps**
+  (`@react-google-maps/api`) — paquetes instalados, integración pendiente
+  (ver [Estado del proyecto](#estado-del-proyecto))
+
+No hay una suite de pruebas automatizadas (no hay Jest/Vitest/Playwright
+configurado todavía).
+
+## Los dos sistemas
+
+Aunque viven en el mismo repo y la misma base de datos, la tienda y el
+panel admin están deliberadamente separados a nivel de sesión:
+
+- **Sesión de cliente** (`sb-customer-auth`) — se inicia en `/cuenta`, y es
+  la que exige `/checkout` para poder completar un pedido. Cualquier
+  persona se puede registrar sola con su correo real.
+- **Sesión de staff/admin** (`sb-admin-auth`) — se inicia en
+  `/admin-login`, y es la que exige todo lo que está bajo `/admin/*`. Las
+  cuentas de staff/admin no se auto-registran: las crea un administrador
+  desde `/admin/usuarios/nuevo` con una contraseña fija que le entrega a la
+  persona por fuera del sistema.
+
+Son dos cookies distintas manejadas por el mismo middleware
+(`proxy.ts` + `lib/supabase/middleware.ts`), así que iniciar sesión en el
+panel como staff nunca cierra ni pisa la sesión de cliente de esa misma
+persona en `/cuenta`, y viceversa. El rol (`customer` / `staff` / `admin`)
+se guarda en `app_metadata` de Supabase Auth, que solo se puede escribir
+con la Service Role Key — un usuario no puede otorgarse un rol más alto por
+su cuenta.
+
+Dentro del panel, algunas secciones son solo para `admin` (Reportes,
+Usuarios, borrar productos) — `staff` puede operar el día a día (cargar
+productos, ver ventas) pero no esas pantallas. Esto se refuerza en dos
+capas: el middleware bloquea `/admin/*` a quien no tenga sesión de
+staff/admin, y `requireRole()` (`lib/auth/session.ts`) vuelve a validar el
+rol exacto dentro de cada página que lo necesita.
+
+## Estructura del proyecto
+
+```
+app/
+  (site)/           tienda pública: shop, producto/[slug], carrito,
+                     checkout, cuenta, favoritos, blog, contacto
+  (admin)/           panel: admin-login, admin/ (dashboard, productos,
+                     categorías, ventas, reportes, reseñas, usuarios)
+  api/auth/          logout unificado (cierra la sesión del scope indicado)
+components/          componentes de la tienda + components/admin/
+lib/
+  actions.ts          server actions públicas (signIn, signUp, createReview)
+  admin/              server actions y utilidades del panel
+  auth/               sesión actual, traducción de errores de Supabase
+  checkout/           createOrder (crea el pedido con su método de pago)
+  supabase/           clientes de Supabase (browser, server, admin, middleware)
+  cart-store.ts       carrito (Zustand + localStorage)
+  wishlist-store.ts   favoritos (Zustand + localStorage)
+  categories.ts       árbol de categorías
+  prisma.ts           cliente Prisma (adapter-pg)
+prisma/
+  schema.prisma       modelo de datos (fuente de verdad en Prisma)
+  schema.sql          el mismo esquema en SQL plano, listo para ejecutar
+  migrations/         migraciones aplicadas, incluida la sincronización
+                       con Supabase Auth (triggers de auth.users -> public.users)
+scripts/              scripts de una sola vez: seed de categorías/productos
+                       de ejemplo, backfill de descripciones, export a CSV
+public/assets/        CSS/JS/imágenes del template de la tienda
+public/admin-assets/  CSS/JS/imágenes del template del panel (DreamsPOS)
+public/uploads/       imágenes subidas desde el panel (no se versiona el
+                       contenido, solo la carpeta — ver .gitignore)
+proxy.ts              middleware: refresca ambas sesiones y aplica el
+                       gateo de /admin y /checkout
+```
+
+## Modelo de datos (resumen)
+
+El esquema completo vive en `prisma/schema.prisma` (y su equivalente en SQL
+plano en `prisma/schema.sql`). Resumen de las tablas principales:
+
+| Modelo | Para qué sirve |
+|---|---|
+| `User` | Cuenta de cliente o staff/admin. El `id` es el mismo UUID que Supabase Auth le da a esa persona (sincronizado por trigger). |
+| `Address` | Direcciones de envío/facturación de un usuario. |
+| `Category` | Categorías y subcategorías del catálogo (autorelación padre-hijo). |
+| `Product` / `ProductImage` / `ProductVariant` | Productos, sus imágenes y variantes opcionales (talla/color). |
+| `Review` | Reseñas de producto (rating 1-5). |
+| `Cart` / `CartItem` | Carrito persistido en base de datos (por usuario o por invitado) — el carrito que usa la tienda hoy vive en `localStorage`, esta tabla está preparada para cuando se quiera sincronizar entre dispositivos. |
+| `Wishlist` | Favoritos guardados por usuario — mismo caso que el carrito: hoy la wishlist de la tienda vive en `localStorage`. |
+| `Coupon` | Cupones de descuento. |
+| `Order` / `OrderItem` | Pedidos y sus líneas (con snapshot del nombre/precio al momento de compra). |
+| `Payment` | Registro de pagos (PayPal u otro proveedor), con la respuesta cruda de la API para auditoría. |
+| `StoreLocation` | Ubicaciones físicas de la tienda (mapa de contacto). |
+| `BlogPost` | Artículos del blog. |
+| `NewsletterSubscriber` | Suscriptores al newsletter. |
 
 ## Primeros pasos
 
+Requisitos: Node.js 20+, una base de datos PostgreSQL (el proyecto está
+pensado para Supabase, que además provee la autenticación), y npm.
+
 ```bash
+git clone <url-del-repo>
+cd IsaStore-Ecommerce
 npm install
-cp .env.example .env.local   # completa DATABASE_URL y DIRECT_URL
+cp .env.example .env.local   # completar según la sección de abajo
 npx prisma generate
-npx prisma db push           # crea las tablas en tu base de datos (o usa prisma/schema.sql directo)
+npx prisma db push           # crea las tablas (alternativa: correr prisma/schema.sql a mano)
 npm run dev
 ```
+
+La app queda en `http://localhost:3000` — la tienda en `/`, el login de
+staff/admin en `/admin-login`.
+
+### Variables de entorno (`.env.local`)
+
+Todas están documentadas con más detalle en `.env.example`; resumen por
+grupo:
+
+- **Base de datos** — `DATABASE_URL` (conexión *pooled*, puerto 6543, la
+  usa la app en runtime) y `DIRECT_URL` (conexión directa, puerto 5432, la
+  usa el CLI de Prisma para migrar — las migraciones no funcionan bien a
+  través de un pooler de transacciones).
+- **Supabase Auth** (obligatorias, sin esto no funciona ningún
+  login/registro): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+  `SUPABASE_SERVICE_ROLE_KEY` (esta última nunca debe llegar al navegador —
+  es la que puede crear staff y asignar roles).
+- **Google Maps** — `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` (habilitar Maps
+  JavaScript API, Places API y Geocoding API). Todavía no está conectada en
+  el código (ver estado del proyecto).
+- **PayPal** — `PAYPAL_MODE`, `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`,
+  `NEXT_PUBLIC_PAYPAL_CLIENT_ID`, `PAYPAL_WEBHOOK_ID`. Con estas vacías, el
+  checkout muestra el botón de PayPal deshabilitado ("Próximamente").
+- **Correo (SMTP)** — pensado para las confirmaciones de pedido por correo;
+  las variables ya están en `.env.example` pero el envío de correos
+  todavía no está implementado en el código (ver estado del proyecto).
+- **App** — `NEXT_PUBLIC_SITE_URL` (usada para construir URLs absolutas).
+
+### Cargar datos de prueba (opcional)
+
+`scripts/` tiene scripts de una sola vez, pensados para correrse con
+`node scripts/<archivo>.cjs` (leen `.env.local` ellos mismos):
+
+- `seed-categories.cjs` — crea las categorías y subcategorías reales del
+  catálogo (idempotente, se puede correr más de una vez).
+- `seed-accesorios-subcategorias.cjs`, `seed-cadenas-subcategorias.cjs`,
+  `seed-maquillaje-subcategorias.cjs`, `seed-peluches-subcategorias.cjs`,
+  `seed-ropa-subcategorias.cjs`, `seed-empty-categories.cjs` — cargan
+  productos de ejemplo por subcategoría (sin imagen real).
+- `backfill-product-descriptions.cjs` — completa descripción/atributos de
+  productos que no los tengan.
+- `exportar-productos.cjs` — exporta el catálogo actual a un CSV.
 
 ### Nota importante: Prisma ORM 7
 
 Este proyecto usa Prisma 7, que trajo varios cambios importantes respecto a
-versiones anteriores (rompe con lo que se documentó originalmente en la
-arquitectura):
+versiones anteriores:
 
 - La URL de conexión **ya no va en `prisma/schema.prisma`** — vive en
   `prisma.config.ts` (usa `DIRECT_URL`, la conexión sin pooling, porque las
@@ -47,51 +205,64 @@ arquitectura):
   },
   ```
 
-`npx prisma generate` descarga el motor de Prisma desde `binaries.prisma.sh`.
-Este scaffold se armó dentro de un entorno con acceso a internet restringido
-donde ese dominio no estaba permitido, así que **ese paso puntual no se pudo
-ejecutar/verificar aquí** (sí se confirmó que `prisma.config.ts` carga bien y
-que el error es exclusivamente de red, no de configuración). Corre
-`npm run build` una vez en tu máquina, con Prisma generado, para la
-verificación final de punta a punta.
+`npx prisma generate` descarga el motor de Prisma desde `binaries.prisma.sh`
+— si trabajás detrás de un proxy o firewall que bloquee ese dominio, ese
+paso puntual va a fallar aunque la configuración esté bien.
 
-## Qué está migrado ya
+## Estado del proyecto
 
-| Página | Estado |
-|---|---|
-| `/` (inicio) | Hero + categorías + productos destacados (Prisma) |
-| `/shop` | Catálogo con filtro por categoría (`?categoria=slug`) |
-| `/producto/[slug]` | Ficha de producto: galería, precio, stock, reseñas, agregar al carrito |
-| `/carrito` | Carrito funcional (Zustand + localStorage), sin backend todavía |
-| `/checkout`, `/cuenta`, `/favoritos`, `/blog`, `/contacto` | Páginas placeholder con la nota de qué falta — ver cada archivo en `app/` |
+### Ya funciona de punta a punta
 
-Esto sigue el orden de prioridad definido en el documento de arquitectura:
-catálogo primero, luego carrito/checkout, cuenta, contacto+mapa, y por
-último wishlist/blog.
+- Catálogo (`/shop`, `/producto/[slug]`) con filtro por categoría,
+  subcategoría, precio y rating.
+- Carrito (`/carrito`) y wishlist (`/favoritos`), ambos en `localStorage`.
+- Registro/login real de clientes (`/cuenta`) y de staff/admin
+  (`/admin-login`), con Supabase Auth y sesiones separadas.
+- Checkout con un método de pago activo: **efectivo en tienda** (el pedido
+  se marca pagado al crearse, porque el cliente paga al recoger en
+  persona). El botón de **PayPal** está en la UI pero deshabilitado hasta
+  cargar credenciales reales.
+- Reseñas de producto (`WriteReviewForm`), se publican sin aprobación
+  manual.
+- Panel admin: productos (alta/edición/borrado), categorías/subcategorías,
+  ventas (listado + detalle imprimible tipo factura), reportes (ventas por
+  fecha, stock bajo, pedidos por estado/método de pago — solo `admin`),
+  reseñas (solo lectura + borrar), usuarios de staff (solo `admin`).
 
-## Qué falta (en orden sugerido)
+### Pendiente
 
-1. Conectar una base de datos real (Supabase) y correr `prisma/schema.sql` o `prisma db push`, cargar productos de prueba.
-2. Checkout: formulario de dirección + botones de PayPal (paquete ya instalado) + API routes para crear/capturar la orden (Orders API v2) + webhook.
-3. Autenticación real en `/cuenta` (Supabase Auth o NextAuth.js).
-4. Mapa de Google en `/contacto` + autocompletar de dirección en checkout (paquete ya instalado).
-5. `/favoritos` y `/blog` conectados a sus tablas (`wishlists`, `blog_posts`).
-6. Las animaciones/carruseles del template original (AOS, Slick, WOW.js, Vanilla-Tilt) usaban jQuery directo sobre el DOM y **no se migraron** — si se quieren, hay que reemplazarlos por una librería nativa de React (ej. Embla o Swiper) en vez de reintroducir jQuery.
+- **Cobro real con PayPal** — conectar el botón (Orders API v2: crear y
+  capturar la orden desde el servidor) y, si se quiere una confirmación
+  confiable sin depender del navegador del cliente, un webhook de PayPal.
+  La tabla `Payment` y el campo `Order.paymentStatus` ya están listos para
+  recibir esto.
+- **Correo de confirmación de pedido** — las variables SMTP ya están en
+  `.env.example`, pero hoy no se envía ningún correo al completar un
+  pedido (solo se muestra un modal en pantalla).
+- **Mapa de Google** en `/contacto` y autocompletado de dirección en
+  `/checkout` — el paquete está instalado, la UI tiene el espacio
+  reservado ("Mapa próximamente"), falta la integración.
+- **Productos relacionados** en la ficha de producto — no hay lógica de
+  Prisma para esto todavía.
+- Migrar carrito/wishlist de `localStorage` a las tablas `Cart`/`Wishlist`
+  de la base de datos, para que persistan entre dispositivos (ya existe
+  login real de clientes, así que esto ya no está bloqueado por falta de
+  autenticación).
+- Blog (`/blog`) conectado a `BlogPost` — listo para publicar, falta
+  contenido real.
 
-## Estructura
+## Notas de limpieza pendientes (no aplicadas en esta pasada)
 
-```
-app/            rutas (App Router): shop, producto/[slug], carrito, checkout, cuenta, favoritos, blog, contacto, api/
-components/     SiteHeader, SiteFooter, ProductCard, AddToCartButton
-lib/            prisma.ts (cliente), cart-store.ts (Zustand), types.ts
-prisma/         schema.prisma (modelo) + schema.sql (fuente de verdad del SQL)
-public/assets/  css/js/imágenes copiados de IsaWebPlantilla
-.env.example    variables de entorno necesarias
-```
-
-## Documento de arquitectura completo
-
-El análisis completo (esquema de base de datos con su razonamiento,
-integración de PayPal y Google Maps paso a paso, decisiones de stack) vive
-en el contexto compartido del proyecto — `prisma/schema.sql` de este repo es
-exactamente ese esquema, listo para ejecutar.
+- `tmp/` (salida de un `npm run build` de verificación) quedó en el repo
+  como carpeta sin trackear; ya se agregó a `.gitignore` para que no se
+  vuelva a commitear por accidente, pero la carpeta en sí sigue en disco —
+  se puede borrar sin riesgo (`rm -rf tmp/`) cuando quieras.
+- `productos-export.csv` y `prompts-fotos-productos.xlsx` están sueltos en
+  la raíz del repo (salida de `scripts/exportar-productos.cjs` y un archivo
+  de trabajo aparte). No los toqué porque no son código ni configuración —
+  si querés, se pueden mover a una carpeta `data/` para que la raíz del
+  repo quede solo con configuración y código.
+- Hay bastante trabajo ya hecho sin commitear (auth, checkout, reseñas,
+  wishlist, varias páginas del panel, migraciones de Supabase Auth) —
+  conviene revisar `git status` y commitear en bloques lógicos antes de
+  seguir agregando cambios encima.
