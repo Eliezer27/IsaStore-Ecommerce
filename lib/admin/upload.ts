@@ -3,6 +3,7 @@ import "server-only";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import crypto from "crypto";
+import { MAX_UPLOAD_FILE_SIZE_BYTES, MAX_UPLOAD_FILE_SIZE_MB } from "./upload-constants";
 
 const ALLOWED_MIME_TO_EXT: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -11,8 +12,6 @@ const ALLOWED_MIME_TO_EXT: Record<string, string> = {
   "image/gif": "gif",
   "image/svg+xml": "svg",
 };
-
-const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 
 /**
  * Guarda un archivo de imagen subido desde el dispositivo en
@@ -29,8 +28,11 @@ export async function saveUploadedImage(
     );
   }
 
-  if (file.size > MAX_FILE_SIZE_BYTES) {
-    throw new Error("La imagen supera el tamaño máximo permitido (5MB).");
+  if (file.size > MAX_UPLOAD_FILE_SIZE_BYTES) {
+    throw new Error(
+      `La imagen "${file.name}" pesa ${(file.size / (1024 * 1024)).toFixed(1)}MB, ` +
+        `y el máximo permitido es ${MAX_UPLOAD_FILE_SIZE_MB}MB. Elegí una imagen más liviana o comprimila antes de subirla.`
+    );
   }
 
   const ext = ALLOWED_MIME_TO_EXT[file.type];

@@ -168,21 +168,6 @@ export default function CartPage() {
                     </tbody>
                   </table>
                 </div>
-
-                <div className="flex-between flex-wrap gap-16 mt-16">
-                  {/* Cupón solo visual: todavía no hay backend de cupones, el submit no hace nada más que preventDefault */}
-                  <form
-                    className="flex-align gap-16"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                    }}
-                  >
-                    <input type="text" className="common-input" placeholder="Código de Cupón" />
-                    <button type="submit" className="btn btn-main py-18 w-100 rounded-8">
-                      Aplicar Cupón
-                    </button>
-                  </form>
-                </div>
               </div>
             </div>
             <div className="col-xl-3 col-lg-4">

@@ -1,16 +1,16 @@
-"use client";
-
-import type { FormEvent } from "react";
 import Link from "next/link";
+import { getCurrentUser } from "@/lib/auth/session";
+import AccountAuthForms from "@/components/AccountAuthForms";
 
-// Portado de account.html (líneas ~687-834): breadcrumb + sección de cuenta
-// (tarjetas de login y registro lado a lado) + sección de envío genérica.
-// Todavía no hay autenticación real conectada: los formularios solo hacen
-// preventDefault. Se quitaron los data-aos (JS no cargado) y el toggle de
-// mostrar/ocultar contraseña (dependía de main.js, que no se ejecuta aquí).
+// Portado de account.html (líneas ~687-834), ahora con autenticación real
+// vía Supabase Auth. Antes era una maqueta pura (los dos forms solo hacían
+// preventDefault) — ver AccountAuthForms.tsx para el login/registro
+// conectados de verdad, y lib/actions.ts para signIn/signUp.
+//
+// "?redirect=" lo manda proxy.ts cuando alguien sin sesión intenta entrar a
+// /checkout — acá se muestra el aviso y, tras loguearse/registrarse,
+// AccountAuthForms devuelve directo a esa ruta.
 
-// Los 4 íconos de "envío" son contenido decorativo sin backend, así que se
-// listan acá y se recorren con .map() en vez de copiar el bloque 4 veces.
 const SHIPPING_ITEMS = [
   { icon: "ph-car-profile", title: "Envío Gratis" },
   { icon: "ph-hand-heart", title: "Satisfacción 100%" },
@@ -18,16 +18,21 @@ const SHIPPING_ITEMS = [
   { icon: "ph-chats", title: "Soporte 24/7" },
 ];
 
-export default function AccountPage() {
-  function handleLogin(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    // TODO: conectar autenticación real (Supabase Auth o NextAuth.js)
-  }
+const ROLE_LABEL: Record<string, string> = {
+  customer: "Cliente",
+  staff: "Staff",
+  admin: "Administrador",
+};
 
-  function handleRegister(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    // TODO: conectar autenticación real (Supabase Auth o NextAuth.js)
-  }
+export default async function AccountPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ redirect?: string }>;
+}) {
+  const params = await searchParams;
+  const user = await getCurrentUser();
+  const redirectTo = params.redirect?.startsWith("/") ? params.redirect : "/cuenta";
+  const showRedirectBanner = !user && redirectTo !== "/cuenta";
 
   return (
     <>
@@ -53,113 +58,43 @@ export default function AccountPage() {
 
       <section className="account py-80">
         <div className="container container-lg">
-          <div className="row gy-4">
-            <div className="col-xl-6 pe-xl-5">
-              <div className="border border-gray-100 hover-border-main-600 transition-1 rounded-16 px-24 py-40 h-100">
-                <h6 className="text-xl mb-32">Iniciar sesión</h6>
-                <form onSubmit={handleLogin}>
-                  <div className="mb-24">
-                    <label htmlFor="username" className="text-neutral-900 text-lg mb-8 fw-medium">
-                      Nombre de usuario o dirección de correo electrónico{" "}
-                      <span className="text-danger">*</span>
-                    </label>
-                    <input type="text" className="common-input" id="username" placeholder="Primer Nombre" />
-                  </div>
-                  <div className="mb-24">
-                    <label htmlFor="password" className="text-neutral-900 text-lg mb-8 fw-medium">
-                      Contraseña
-                    </label>
-                    <div className="position-relative">
-                      <input
-                        type="password"
-                        className="common-input"
-                        id="password"
-                        placeholder="Introducir Contraseña"
-                      />
-                      <span className="toggle-password position-absolute top-50 inset-inline-end-0 me-16 translate-middle-y ph ph-eye-slash" />
-                    </div>
-                  </div>
-                  <div className="mb-24 mt-48">
-                    <div className="flex-align gap-48 flex-wrap">
-                      <button type="submit" className="btn btn-main py-18 px-40">
-                        Iniciar sesión
-                      </button>
-                      <div className="form-check common-check">
-                        <input className="form-check-input" type="checkbox" id="remember" />
-                        <label className="form-check-label flex-grow-1" htmlFor="remember">
-                          Recuérdame
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-48">
-                    <a href="#" className="text-danger-600 text-sm fw-semibold hover-text-decoration-underline">
-                      ¿Olvidaste tu contraseña?
-                    </a>
-                  </div>
-                </form>
-              </div>
+          {showRedirectBanner && (
+            <div className="alert alert-info mb-32" role="status">
+              Iniciá sesión o creá una cuenta para continuar tu compra.
             </div>
+          )}
 
-            <div className="col-xl-6">
-              <div className="border border-gray-100 hover-border-main-600 transition-1 rounded-16 px-24 py-40">
-                <h6 className="text-xl mb-32">Registrarse</h6>
-                <form onSubmit={handleRegister}>
-                  <div className="mb-24">
-                    <label htmlFor="usernameTwo" className="text-neutral-900 text-lg mb-8 fw-medium">
-                      Nombre de usuario <span className="text-danger">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      className="common-input"
-                      id="usernameTwo"
-                      placeholder="Escribe un nombre de usuario"
-                    />
+          {user ? (
+            <div className="row">
+              <div className="col-xl-6">
+                <div className="border border-gray-100 rounded-16 px-24 py-40">
+                  <h6 className="text-xl mb-32">Tu perfil</h6>
+                  <div className="mb-16">
+                    <span className="text-gray-500 text-sm d-block">Nombre</span>
+                    <span className="text-gray-900">
+                      {[user.firstName, user.lastName].filter(Boolean).join(" ") || "—"}
+                    </span>
                   </div>
-                  <div className="mb-24">
-                    <label htmlFor="emailTwo" className="text-neutral-900 text-lg mb-8 fw-medium">
-                      Dirección de correo electrónico <span className="text-danger">*</span>
-                    </label>
-                    <input
-                      type="email"
-                      className="common-input"
-                      id="emailTwo"
-                      placeholder="Introduce la dirección de correo electrónico"
-                    />
+                  <div className="mb-16">
+                    <span className="text-gray-500 text-sm d-block">Correo</span>
+                    <span className="text-gray-900">{user.email}</span>
                   </div>
-                  <div className="mb-24">
-                    <label htmlFor="enter-password" className="text-neutral-900 text-lg mb-8 fw-medium">
-                      Contraseña <span className="text-danger">*</span>
-                    </label>
-                    <div className="position-relative">
-                      <input
-                        type="password"
-                        className="common-input"
-                        id="enter-password"
-                        placeholder="Introduce la contraseña"
-                      />
-                      <span className="toggle-password position-absolute top-50 inset-inline-end-0 me-16 translate-middle-y ph ph-eye-slash" />
-                    </div>
+                  <div className="mb-32">
+                    <span className="text-gray-500 text-sm d-block">Tipo de cuenta</span>
+                    <span className="text-gray-900">{ROLE_LABEL[user.role] ?? user.role}</span>
                   </div>
-                  <div className="my-48">
-                    <p className="text-gray-500">
-                      Tus datos personales serán utilizados para procesar tu pedido, apoyar tu
-                      experiencia en este sitio web, y para otros fines descritos en nuestra{" "}
-                      <a href="#" className="text-main-600 text-decoration-underline">
-                        política de privacidad
-                      </a>
-                      .
-                    </p>
-                  </div>
-                  <div className="mt-48">
-                    <button type="submit" className="btn btn-main py-18 px-40">
-                      Registrar
+                  <form action="/api/auth/logout" method="POST">
+                    <input type="hidden" name="redirect" value="/" />
+                    <button type="submit" className="btn btn-main py-14 px-32">
+                      Cerrar sesión
                     </button>
-                  </div>
-                </form>
+                  </form>
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <AccountAuthForms redirectTo={redirectTo} />
+          )}
         </div>
       </section>
 

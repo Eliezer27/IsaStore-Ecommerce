@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +56,7 @@ export default async function AdminSalesPage() {
                   <th>Total</th>
                   <th>Pago</th>
                   <th>Estado</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -84,6 +86,11 @@ export default async function AdminSalesPage() {
                       <span className={`badge ${STATUS_BADGE[o.status] ?? "bg-secondary"}`}>
                         {o.status}
                       </span>
+                    </td>
+                    <td>
+                      <Link href={`/admin/ventas/${o.id}`} title="Ver detalle / factura">
+                        <img src="/admin-assets/img/icons/eye.svg" alt="Ver" />
+                      </Link>
                     </td>
                   </tr>
                 ))}

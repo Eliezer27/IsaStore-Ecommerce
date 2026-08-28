@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { useCartStore } from "@/lib/cart-store";
+import { createOrder, type CheckoutFormState } from "@/lib/checkout/actions";
+import OrderSuccessModal from "@/components/OrderSuccessModal";
 
 function formatPrice(price: number) {
   return new Intl.NumberFormat("es-NI", {
@@ -12,23 +14,39 @@ function formatPrice(price: number) {
   }).format(price);
 }
 
-type PaymentMethod = "transferencia" | "cheque" | "contra-entrega";
-
 // Checkout portado de checkout.html (líneas ~687-906): breadcrumb, formulario
 // de dirección de envío/facturación, resumen de la orden (leyendo el carrito
-// real de lib/cart-store.ts) y selector de método de pago. El HTML original
-// no incluye un botón de PayPal, así que no se agrega uno acá; cuando exista
-// backend de órdenes se puede sumar @paypal/react-paypal-js como método
-// adicional.
+// real de lib/cart-store.ts) y método de pago.
+//
+// Los tres métodos manuales que traía la plantilla (transferencia, cheque,
+// contra entrega) se quitaron a pedido — PayPal queda como único método.
+// Todavía no hay credenciales reales de PayPal cargadas (PAYPAL_CLIENT_ID
+// vacío en .env.local), así que el botón de PayPal se muestra inactivo
+// ("Próximamente") en vez de simular una integración que no existe. El
+// botón "Realizar Pedido" sí es funcional de verdad para poder probar el
+// flujo completo mientras tanto: crea el pedido con payment_method="paypal"
+// y payment_status="unpaid" (createOrder en lib/checkout/actions.ts) — el
+// cobro real por PayPal se conecta después, cuando haya credenciales.
 //
 // El mapa para confirmar la dirección de entrega se agregó acá (y no en
 // /contacto) porque tiene más sentido mostrarlo cuando el cliente ya está
 // haciendo el pedido, no en la página de contacto.
+type PaymentMethod = "efectivo-tienda" | "paypal";
+
 export default function CheckoutPage() {
   const lines = useCartStore((state) => state.lines);
   const totalPrice = useCartStore((state) => state.totalPrice());
+  const clearCart = useCartStore((state) => state.clear);
 
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("transferencia");
+  // Con "Efectivo en tienda" no hay envío (la persona retira en persona),
+  // así que no tiene sentido pedirle ciudad/código postal ni mostrarle un
+  // mapa de "confirma tu dirección de entrega" — se esconden esos campos
+  // mientras ese sea el método elegido. Cuando PayPal esté activo de
+  // verdad (hoy está deshabilitado, ver más abajo) sí va a implicar envío,
+  // así que ahí se vuelven a mostrar.
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("efectivo-tienda");
+  const showShippingFields = paymentMethod !== "efectivo-tienda";
+
   const [form, setForm] = useState({
     nombre: "",
     apellido: "",
@@ -39,6 +57,21 @@ export default function CheckoutPage() {
     email: "",
     notas: "",
   });
+  const [state, formAction, pending] = useActionState<CheckoutFormState, FormData>(
+    createOrder,
+    null
+  );
+  // El carrito se vacía apenas el pedido se crea con éxito, comparando
+  // contra el último estado ya manejado (en vez de un useEffect con
+  // setState/clear adentro, que dispara el lint rule
+  // react-hooks/set-state-in-effect — mismo patrón que WriteReviewForm.tsx).
+  const [handledState, setHandledState] = useState(state);
+  if (state !== handledState) {
+    setHandledState(state);
+    if (state && "success" in state) {
+      clearCart();
+    }
+  }
 
   function handleChange(field: keyof typeof form) {
     return (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -46,11 +79,10 @@ export default function CheckoutPage() {
     };
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    // TODO: conectar con la API de creación de orden cuando exista backend
-    // (guardar dirección + método de pago + líneas del carrito, crear la
-    // orden y redirigir a una página de confirmación).
+  if (state && "success" in state) {
+    return (
+      <OrderSuccessModal orderNumber={state.orderNumber} onClose={() => setHandledState(null)} />
+    );
   }
 
   if (lines.length === 0) {
@@ -105,11 +137,24 @@ export default function CheckoutPage() {
           </div>
           <div className="row">
             <div className="col-xl-9 col-lg-8">
-              <form id="checkout-form" onSubmit={handleSubmit} className="pe-xl-5">
+              {state && "error" in state && (
+                <div className="alert alert-danger mb-24" role="alert">
+                  {state.error}
+                </div>
+              )}
+              <form id="checkout-form" action={formAction} className="pe-xl-5">
+                <input
+                  type="hidden"
+                  name="cartLines"
+                  value={JSON.stringify(
+                    lines.map((l) => ({ productId: l.productId, quantity: l.quantity }))
+                  )}
+                />
                 <div className="row gy-3">
                   <div className="col-sm-6 col-xs-6">
                     <input
                       type="text"
+                      name="nombre"
                       className="common-input border-gray-100"
                       placeholder="Nombre"
                       value={form.nombre}
@@ -119,6 +164,7 @@ export default function CheckoutPage() {
                   <div className="col-sm-6 col-xs-6">
                     <input
                       type="text"
+                      name="apellido"
                       className="common-input border-gray-100"
                       placeholder="Apellido"
                       value={form.apellido}
@@ -129,6 +175,7 @@ export default function CheckoutPage() {
                   <div className="col-12">
                     <input
                       type="text"
+                      name="pais"
                       className="common-input border-gray-100"
                       placeholder="Nicaragua "
                       value={form.pais}
@@ -136,27 +183,34 @@ export default function CheckoutPage() {
                     />
                   </div>
 
-                  <div className="col-12">
-                    <input
-                      type="text"
-                      className="common-input border-gray-100"
-                      placeholder="Ciudad"
-                      value={form.ciudad}
-                      onChange={handleChange("ciudad")}
-                    />
-                  </div>
-                  <div className="col-12">
-                    <input
-                      type="text"
-                      className="common-input border-gray-100"
-                      placeholder="Post Code"
-                      value={form.codigoPostal}
-                      onChange={handleChange("codigoPostal")}
-                    />
-                  </div>
+                  {showShippingFields && (
+                    <>
+                      <div className="col-12">
+                        <input
+                          type="text"
+                          name="ciudad"
+                          className="common-input border-gray-100"
+                          placeholder="Ciudad"
+                          value={form.ciudad}
+                          onChange={handleChange("ciudad")}
+                        />
+                      </div>
+                      <div className="col-12">
+                        <input
+                          type="text"
+                          name="codigoPostal"
+                          className="common-input border-gray-100"
+                          placeholder="Post Code"
+                          value={form.codigoPostal}
+                          onChange={handleChange("codigoPostal")}
+                        />
+                      </div>
+                    </>
+                  )}
                   <div className="col-12">
                     <input
                       type="number"
+                      name="telefono"
                       className="common-input border-gray-100"
                       placeholder="Phone"
                       value={form.telefono}
@@ -166,6 +220,7 @@ export default function CheckoutPage() {
                   <div className="col-12">
                     <input
                       type="email"
+                      name="email"
                       className="common-input border-gray-100"
                       placeholder="Email Address"
                       value={form.email}
@@ -181,28 +236,31 @@ export default function CheckoutPage() {
                       aquí (NEXT_PUBLIC_GOOGLE_MAPS_API_KEY), para que el cliente
                       pueda buscar y confirmar su dirección en el mapa y esas
                       coordenadas se guarden en addresses.lat/lng. */}
-                  <div className="col-12">
-                    <div className="mb-8 mt-8">
-                      <h6 className="text-lg mb-16">Confirma tu ubicación de entrega</h6>
-                      <div
-                        className="rounded-16 bg-gray-50 border border-gray-100 flex-center"
-                        style={{ height: 320 }}
-                      >
-                        <div className="text-center">
-                          <span className="text-4xl text-gray-400 d-block mb-8">
-                            <i className="ph ph-map-trifold" />
-                          </span>
-                          <p className="text-gray-500 mb-0">Mapa próximamente</p>
+                  {showShippingFields && (
+                    <div className="col-12">
+                      <div className="mb-8 mt-8">
+                        <h6 className="text-lg mb-16">Confirma tu ubicación de entrega</h6>
+                        <div
+                          className="rounded-16 bg-gray-50 border border-gray-100 flex-center"
+                          style={{ height: 320 }}
+                        >
+                          <div className="text-center">
+                            <span className="text-4xl text-gray-400 d-block mb-8">
+                              <i className="ph ph-map-trifold" />
+                            </span>
+                            <p className="text-gray-500 mb-0">Mapa próximamente</p>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
+                  )}
 
                   <div className="col-12">
                     <div className="my-40">
                       <h6 className="text-lg mb-24">Informacion adicional</h6>
                       <input
                         type="text"
+                        name="notas"
                         className="common-input border-gray-100"
                         placeholder="Notas sobre su pedido, por ejemplo, notas especiales para la entrega."
                         value={form.notas}
@@ -268,29 +326,34 @@ export default function CheckoutPage() {
                   </div>
 
                   <div className="mt-32">
+                    {/* Nota sobre "form={"checkout-form"}": estos controles viven en la
+                        barra lateral (checkout-sidebar), que está por fuera del <form>
+                        de la izquierda — igual que el botón de "Realizar Pedido" más
+                        abajo, necesitan asociarse al form por id explícitamente o su
+                        valor nunca viaja en el submit. */}
                     <div className="payment-item">
                       <div className="form-check common-check common-radio py-16 mb-0">
                         <input
                           className="form-check-input"
                           type="radio"
                           name="payment"
-                          id="payment1"
-                          checked={paymentMethod === "transferencia"}
-                          onChange={() => setPaymentMethod("transferencia")}
+                          id="payment-efectivo"
+                          value="efectivo-tienda"
+                          form="checkout-form"
+                          checked={paymentMethod === "efectivo-tienda"}
+                          onChange={() => setPaymentMethod("efectivo-tienda")}
                         />
                         <label
                           className="form-check-label fw-semibold text-neutral-600"
-                          htmlFor="payment1"
+                          htmlFor="payment-efectivo"
                         >
-                          Transferencia bancaria directa
+                          Efectivo en tienda
                         </label>
                       </div>
                       <div className="payment-item__content px-16 py-24 rounded-8 bg-main-50 position-relative">
-                        <p className="text-gray-800">
-                          Realiza tu pago directamente en nuestra cuenta bancaria. Por favor,
-                          usa tu ID de pedido como referencia de pago. Tu pedido no será
-                          enviado hasta que los fondos hayan sido acreditados en nuestra
-                          cuenta.
+                        <p className="text-gray-800 mb-0">
+                          Pagás en efectivo cuando pasás a retirar tu pedido en la tienda. Tu
+                          pedido queda registrado y te contactamos para coordinar la entrega.
                         </p>
                       </div>
                     </div>
@@ -300,56 +363,30 @@ export default function CheckoutPage() {
                           className="form-check-input"
                           type="radio"
                           name="payment"
-                          id="payment2"
-                          checked={paymentMethod === "cheque"}
-                          onChange={() => setPaymentMethod("cheque")}
+                          id="payment-paypal"
+                          value="paypal"
+                          form="checkout-form"
+                          checked={paymentMethod === "paypal"}
+                          onChange={() => setPaymentMethod("paypal")}
+                          disabled
                         />
                         <label
-                          className="form-check-label fw-semibold text-neutral-600"
-                          htmlFor="payment2"
+                          className="form-check-label fw-semibold text-neutral-600 flex-align gap-8"
+                          htmlFor="payment-paypal"
                         >
-                          Pagos con cheque
+                          PayPal
+                          <span className="badge bg-gray-100 text-gray-600 fw-medium">
+                            Próximamente
+                          </span>
                         </label>
                       </div>
                       <div className="payment-item__content px-16 py-24 rounded-8 bg-main-50 position-relative">
-                        <p className="text-gray-800">
-                          Realiza tu pago directamente en nuestra cuenta bancaria. Por favor,
-                          usa tu ID de pedido como referencia de pago. Tu pedido no será
-                          enviado hasta que los fondos hayan sido acreditados en nuestra
-                          cuenta.
+                        <p className="text-gray-800 mb-0">
+                          Todavía no está activo el cobro con PayPal. Por ahora elegí
+                          &ldquo;Efectivo en tienda&rdquo; si vas a pagar en persona.
                         </p>
                       </div>
                     </div>
-                    <div className="payment-item">
-                      <div className="form-check common-check common-radio py-16 mb-0">
-                        <input
-                          className="form-check-input"
-                          type="radio"
-                          name="payment"
-                          id="payment3"
-                          checked={paymentMethod === "contra-entrega"}
-                          onChange={() => setPaymentMethod("contra-entrega")}
-                        />
-                        <label
-                          className="form-check-label fw-semibold text-neutral-600"
-                          htmlFor="payment3"
-                        >
-                          Pago contra entrega
-                        </label>
-                      </div>
-                      <div className="payment-item__content px-16 py-24 rounded-8 bg-main-50 position-relative">
-                        <p className="text-gray-800">
-                          Realiza tu pago directamente en nuestra cuenta bancaria. Por favor,
-                          usa tu ID de pedido como referencia de pago. Tu pedido no será
-                          enviado hasta que los fondos hayan sido acreditados en nuestra
-                          cuenta.
-                        </p>
-                      </div>
-                    </div>
-                    {/* TODO: integrar @paypal/react-paypal-js aquí cuando haya backend
-                        de órdenes. El template original no trae un método de pago con
-                        PayPal, pero la dependencia ya está instalada para cuando se
-                        arme el flujo de creación/captura de la orden. */}
                   </div>
 
                   <div className="mt-32 pt-32 border-top border-gray-100">
@@ -368,8 +405,9 @@ export default function CheckoutPage() {
                     type="submit"
                     form="checkout-form"
                     className="btn btn-main mt-40 py-18 w-100 rounded-8 mt-56"
+                    disabled={pending}
                   >
-                    Realizar Pedido
+                    {pending ? "Procesando..." : "Realizar Pedido"}
                   </button>
                 </div>
               </div>

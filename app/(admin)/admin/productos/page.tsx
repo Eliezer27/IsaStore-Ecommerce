@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { deleteProduct } from "@/lib/admin/actions";
 import DeleteButton from "@/components/admin/DeleteButton";
+import { getCurrentAdminUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,8 @@ async function getProducts() {
 }
 
 export default async function AdminProductsPage() {
+  const user = await getCurrentAdminUser();
+  const canDelete = user?.role === "admin";
   const products = await getProducts();
 
   return (
@@ -94,11 +97,13 @@ export default async function AdminProductsPage() {
                       <a className="me-3" href={`/admin/productos/${p.id}/editar`}>
                         <img src="/admin-assets/img/icons/edit.svg" alt="Editar" />
                       </a>
-                      <DeleteButton
-                        id={p.id}
-                        action={deleteProduct}
-                        confirmLabel={`¿Eliminar "${p.name}"? Esta acción no se puede deshacer.`}
-                      />
+                      {canDelete && (
+                        <DeleteButton
+                          id={p.id}
+                          action={deleteProduct}
+                          confirmLabel={`¿Eliminar "${p.name}"? Esta acción no se puede deshacer.`}
+                        />
+                      )}
                     </td>
                   </tr>
                 ))}

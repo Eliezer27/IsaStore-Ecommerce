@@ -3,6 +3,8 @@
 import Link from "next/link";
 import type { ProductCard as ProductCardType } from "@/lib/types";
 import { useCartStore } from "@/lib/cart-store";
+import { useWishlistStore } from "@/lib/wishlist-store";
+import { useHasMounted } from "@/lib/use-has-mounted";
 
 // Tarjeta de producto portada de shop.html (líneas ~929-960): el layout real
 // es un div.product-card suelto (sin wrapper col-* de Bootstrap), porque
@@ -21,8 +23,19 @@ function formatPrice(price: number, currency: string) {
 
 export default function ProductCard({ product }: { product: ProductCardType }) {
   const addItem = useCartStore((state) => state.addItem);
+  const toggleWishlist = useWishlistStore((state) => state.toggle);
+  const wishlisted = useWishlistStore((state) =>
+    state.items.some((i) => i.productId === product.id)
+  );
   const onSale =
     product.compareAtPrice !== null && product.compareAtPrice > product.price;
+
+  // El wishlist se hidrata desde localStorage recién después del mount, así
+  // que en el primer render del cliente `wishlisted` puede diferir de lo que
+  // se renderizó en el servidor (siempre false ahí); useHasMounted evita el
+  // hydration mismatch (ver lib/use-has-mounted.ts).
+  const mounted = useHasMounted();
+  const showWishlisted = mounted && wishlisted;
 
   return (
     <div className="product-card h-100 p-16 border border-gray-100 hover-border-main-600 rounded-16 position-relative transition-2">
@@ -40,12 +53,34 @@ export default function ProductCard({ product }: { product: ProductCardType }) {
           <img
             src={product.image}
             alt={product.name}
-            className="w-auto max-w-unset"
+            className="w-100 h-100 object-fit-contain"
           />
         ) : (
           <span className="text-gray-400 text-sm">Sin imagen</span>
         )}
       </Link>
+      <button
+        type="button"
+        aria-label={showWishlisted ? "Quitar de deseos" : "Agregar a deseos"}
+        aria-pressed={showWishlisted}
+        onClick={(e) => {
+          e.preventDefault();
+          toggleWishlist({
+            productId: product.id,
+            name: product.name,
+            slug: product.slug,
+            price: product.price,
+            image: product.image,
+          });
+        }}
+        className={`product-card__wishlist w-40 h-40 flex-center rounded-circle text-lg position-absolute inset-inline-end-0 inset-block-start-0 mt-16 me-16 transition-2 ${
+          showWishlisted
+            ? "bg-main-two-600 text-white"
+            : "bg-white text-gray-600 hover-bg-main-two-600 hover-text-white"
+        }`}
+      >
+        <i className={showWishlisted ? "ph-fill ph-heart" : "ph ph-heart"} />
+      </button>
       <div className="product-card__content mt-16">
         <h6 className="title text-lg fw-semibold mt-12 mb-8">
           <Link href={`/producto/${product.slug}`} className="link text-line-2">

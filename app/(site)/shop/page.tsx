@@ -2,16 +2,50 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import ProductCard from "@/components/ProductCard";
 import type { ProductCard as ProductCardType } from "@/lib/types";
-import { CATEGORIES } from "@/lib/categories";
+import { getCategoryTree } from "@/lib/categories";
 
 export const dynamic = "force-dynamic";
 
-async function getProducts(categoria?: string): Promise<ProductCardType[]> {
+// Devuelve los productos que cumplen categoría/subcategoría y precio (todo lo
+// que se puede filtrar en la consulta a la base de datos). El filtro de
+// rating se aplica después, en memoria, sobre este mismo resultado — así el
+// sidebar puede mostrar cuántos productos hay por cada umbral de estrellas
+// sin tener que repetir la consulta.
+async function getProducts(opts: {
+  categoria?: string;
+  subcategoria?: string;
+  precioMin?: number;
+  precioMax?: number;
+}): Promise<ProductCardType[]> {
+  const { categoria, subcategoria, precioMin, precioMax } = opts;
   try {
+    // Si viene subcategoría, se filtra por ese slug exacto (el producto
+    // cuelga directo de esa subcategoría). Si solo viene la categoría
+    // padre, se incluyen tanto los productos asignados directo a esa
+    // categoría como los asignados a cualquiera de sus subcategorías
+    // (category.parent.slug === categoria) — así "Ropa" muestra todo lo de
+    // Camisas/Blusas, Pantalones, etc. sin tener que entrar a cada una.
+    const categoryFilter = subcategoria
+      ? { category: { slug: subcategoria } }
+      : categoria
+        ? { category: { OR: [{ slug: categoria }, { parent: { slug: categoria } }] } }
+        : {};
+
+    const priceFilter =
+      precioMin !== undefined || precioMax !== undefined
+        ? {
+            price: {
+              ...(precioMin !== undefined ? { gte: precioMin } : {}),
+              ...(precioMax !== undefined ? { lte: precioMax } : {}),
+            },
+          }
+        : {};
+
     const products = await prisma.product.findMany({
       where: {
         isActive: true,
-        ...(categoria ? { category: { slug: categoria } } : {}),
+        ...categoryFilter,
+        ...priceFilter,
       },
       include: { images: { orderBy: { position: "asc" }, take: 1 } },
       orderBy: { createdAt: "desc" },
@@ -39,19 +73,11 @@ async function getProducts(categoria?: string): Promise<ProductCardType[]> {
   }
 }
 
-// Filtro de calificación de shop.html (líneas ~761-843): en la plantilla
-// original eran 5 bloques casi idénticos con porcentajes y conteos de
-// ejemplo inventados. Se resumen acá como datos para poder usar .map().
-// Es un filtro puramente visual todavía: no hay agregación real de ratings
-// por producto en la consulta, así que los radios no filtran nada (igual
-// que en el HTML original, que tampoco tenía JS de filtrado real).
-const RATING_FILTERS = [
-  { id: "rating5", stars: 5, percent: 70, count: 124 },
-  { id: "rating4", stars: 4, percent: 50, count: 52 },
-  { id: "rating3", stars: 3, percent: 35, count: 12 },
-  { id: "rating2", stars: 2, percent: 20, count: 5 },
-  { id: "rating1", stars: 1, percent: 5, count: 2 },
-];
+// Umbrales del filtro "N estrellas o más". El porcentaje/conteo que se
+// muestra junto a cada uno se calcula en el componente a partir de los
+// productos ya cargados (ver `ratingBuckets` más abajo) — antes eran
+// números de ejemplo inventados que no correspondían a datos reales.
+const RATING_THRESHOLDS = [5, 4, 3, 2, 1];
 
 // Sección de envíos/beneficios de shop.html (líneas ~1114-1145): 4 tarjetas
 // casi idénticas, resumidas como datos para usar .map(). Se quitaron los
@@ -85,9 +111,56 @@ export default async function ShopPage({
   const params = await searchParams;
   const categoria =
     typeof params.categoria === "string" ? params.categoria : undefined;
+  const subcategoria =
+    typeof params.subcategoria === "string" ? params.subcategoria : undefined;
 
-  const products = await getProducts(categoria);
-  const categoriaActual = CATEGORIES.find((cat) => cat.slug === categoria);
+  const parsePositiveNumber = (value: unknown) => {
+    if (typeof value !== "string" || value.trim() === "") return undefined;
+    const n = Number(value);
+    return Number.isFinite(n) && n >= 0 ? n : undefined;
+  };
+  const precioMin = parsePositiveNumber(params.precioMin);
+  const precioMax = parsePositiveNumber(params.precioMax);
+  const ratingMinRaw = parsePositiveNumber(params.ratingMin);
+  const ratingMin =
+    ratingMinRaw !== undefined && ratingMinRaw >= 1 && ratingMinRaw <= 5
+      ? ratingMinRaw
+      : undefined;
+
+  const [productsBeforeRating, categoryTree] = await Promise.all([
+    getProducts({ categoria, subcategoria, precioMin, precioMax }),
+    getCategoryTree(),
+  ]);
+
+  // El rating se filtra en memoria sobre lo que ya trajo la consulta
+  // (categoría + precio), así el sidebar puede mostrar cuántos productos
+  // caen en cada umbral de estrellas sin repetir el query a la base.
+  const products =
+    ratingMin !== undefined
+      ? productsBeforeRating.filter((p) => p.ratingAvg >= ratingMin)
+      : productsBeforeRating;
+
+  const ratingBuckets = RATING_THRESHOLDS.map((stars) => {
+    const count = productsBeforeRating.filter((p) => p.ratingAvg >= stars).length;
+    const percent =
+      productsBeforeRating.length > 0
+        ? Math.round((count / productsBeforeRating.length) * 100)
+        : 0;
+    return { stars, count, percent };
+  });
+
+  const hasActiveFilters =
+    precioMin !== undefined || precioMax !== undefined || ratingMin !== undefined;
+  const clearFiltersHref = `/shop${
+    categoria
+      ? `?categoria=${categoria}${subcategoria ? `&subcategoria=${subcategoria}` : ""}`
+      : ""
+  }`;
+
+  const categoriaActual = categoryTree.find((cat) => cat.slug === categoria);
+  const subcategoriaActual = categoriaActual?.subcategories.find(
+    (sub) => sub.slug === subcategoria
+  );
 
   return (
     <>
@@ -109,9 +182,26 @@ export default async function ShopPage({
               <li className="flex-align">
                 <i className="ph ph-caret-right" />
               </li>
-              <li className="text-sm text-main-600">
-                {categoriaActual ? categoriaActual.name : "Tienda"}
-              </li>
+              {categoriaActual && subcategoriaActual ? (
+                <>
+                  <li className="text-sm">
+                    <Link
+                      href={`/shop?categoria=${categoriaActual.slug}`}
+                      className="text-gray-900 hover-text-main-600"
+                    >
+                      {categoriaActual.name}
+                    </Link>
+                  </li>
+                  <li className="flex-align">
+                    <i className="ph ph-caret-right" />
+                  </li>
+                  <li className="text-sm text-main-600">{subcategoriaActual.name}</li>
+                </>
+              ) : (
+                <li className="text-sm text-main-600">
+                  {categoriaActual ? categoriaActual.name : "Tienda"}
+                </li>
+              )}
             </ul>
           </div>
         </div>
@@ -146,105 +236,158 @@ export default async function ShopPage({
                         Todas
                       </Link>
                     </li>
-                    {CATEGORIES.map((cat) => (
-                      <li key={cat.slug} className="mb-24">
-                        <Link
-                          href={`/shop?categoria=${cat.slug}`}
-                          className={
-                            categoria === cat.slug
-                              ? "text-main-600 fw-semibold"
-                              : "text-gray-900 hover-text-main-600"
-                          }
-                        >
-                          {cat.name}
-                        </Link>
-                      </li>
-                    ))}
+                    {categoryTree.map((cat) => {
+                      const isActiveCategory = categoria === cat.slug;
+                      return (
+                        <li key={cat.slug} className="mb-24">
+                          <Link
+                            href={`/shop?categoria=${cat.slug}`}
+                            className={
+                              isActiveCategory && !subcategoria
+                                ? "text-main-600 fw-semibold"
+                                : "text-gray-900 hover-text-main-600"
+                            }
+                          >
+                            {cat.name}
+                          </Link>
+                          {/* Solo se listan las subcategorías de la categoría
+                              activa, para no mostrar de una vez las de las 6
+                              categorías juntas. */}
+                          {isActiveCategory && cat.subcategories.length > 0 && (
+                            <ul className="ps-16 mt-12">
+                              {cat.subcategories.map((sub) => (
+                                <li key={sub.slug} className="mb-12">
+                                  <Link
+                                    href={`/shop?categoria=${cat.slug}&subcategoria=${sub.slug}`}
+                                    className={
+                                      subcategoria === sub.slug
+                                        ? "text-main-600 fw-semibold"
+                                        : "text-gray-600 hover-text-main-600"
+                                    }
+                                  >
+                                    {sub.name}
+                                  </Link>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
 
-                {/* Filtro de precio: en el HTML original el slider lo maneja
-                    jQuery UI (#slider-range), que no está cargado en este
-                    proyecto. Se deja el bloque visual sin inicializar. */}
-                <div className="shop-sidebar__box border border-gray-100 rounded-8 p-32 mb-32">
-                  <h6 className="text-xl border-bottom border-gray-100 pb-24 mb-24">
-                    Filtrar por precio
-                  </h6>
-                  <div className="custom--range">
-                    <div id="slider-range" />
-                    <div className="flex-between flex-wrap-reverse gap-8 mt-24">
-                      <button type="button" className="btn btn-main h-40 flex-align">
-                        Filtrar
-                      </button>
-                      <div className="custom--range__content flex-align gap-8">
-                        <span className="text-gray-500 text-md flex-shrink-0">
-                          Precio:
-                        </span>
-                        <input
-                          type="text"
-                          className="custom--range__prices text-neutral-600 text-start text-md fw-medium"
-                          id="amount"
-                          readOnly
-                        />
-                      </div>
+                {/* Un solo form GET cubre precio + rating: al enviar navega a
+                    /shop con los query params correspondientes, siguiendo el
+                    mismo patrón que categoría/subcategoría (filtrado real por
+                    URL, sin depender de JS). Los hidden inputs conservan la
+                    categoría/subcategoría actual para no perderla al filtrar. */}
+                <form method="get" action="/shop">
+                  {categoria && <input type="hidden" name="categoria" value={categoria} />}
+                  {subcategoria && (
+                    <input type="hidden" name="subcategoria" value={subcategoria} />
+                  )}
+
+                  <div className="shop-sidebar__box border border-gray-100 rounded-8 p-32 mb-32">
+                    <h6 className="text-xl border-bottom border-gray-100 pb-24 mb-24">
+                      Filtrar por precio
+                    </h6>
+                    <div className="flex-align gap-12">
+                      <input
+                        type="number"
+                        name="precioMin"
+                        min={0}
+                        step="1"
+                        defaultValue={precioMin ?? ""}
+                        placeholder="Mínimo"
+                        aria-label="Precio mínimo"
+                        className="common-input py-11 px-16"
+                      />
+                      <span className="text-gray-500">—</span>
+                      <input
+                        type="number"
+                        name="precioMax"
+                        min={0}
+                        step="1"
+                        defaultValue={precioMax ?? ""}
+                        placeholder="Máximo"
+                        aria-label="Precio máximo"
+                        className="common-input py-11 px-16"
+                      />
                     </div>
                   </div>
-                </div>
 
-                <div className="shop-sidebar__box border border-gray-100 rounded-8 p-32 mb-32">
-                  <h6 className="text-xl border-bottom border-gray-100 pb-24 mb-24">
-                    Filtrar Por raiting
-                  </h6>
-                  {RATING_FILTERS.map((filter) => (
-                    <div
-                      key={filter.id}
-                      className="flex-align gap-8 position-relative mb-20"
-                    >
-                      <label
-                        className="position-absolute w-100 h-100 cursor-pointer"
-                        htmlFor={filter.id}
-                      >
-                        {" "}
-                      </label>
-                      <div className="common-check common-radio mb-0">
-                        <input
-                          className="form-check-input"
-                          type="radio"
-                          name="flexRadioDefault"
-                          id={filter.id}
-                        />
-                      </div>
-                      <div
-                        className="progress w-100 bg-gray-100 rounded-pill h-8"
-                        role="progressbar"
-                        aria-label="Basic example"
-                        aria-valuenow={filter.percent}
-                        aria-valuemin={0}
-                        aria-valuemax={100}
-                      >
+                  <div className="shop-sidebar__box border border-gray-100 rounded-8 p-32 mb-32">
+                    <h6 className="text-xl border-bottom border-gray-100 pb-24 mb-24">
+                      Filtrar Por raiting
+                    </h6>
+                    {ratingBuckets.map((bucket) => {
+                      const id = `rating${bucket.stars}`;
+                      return (
                         <div
-                          className="progress-bar bg-main-600 rounded-pill"
-                          style={{ width: `${filter.percent}%` }}
-                        />
-                      </div>
-                      <div className="flex-align gap-4">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <span
-                            key={i}
-                            className={`text-xs fw-medium d-flex ${
-                              i < filter.stars ? "text-warning-600" : "text-gray-400"
-                            }`}
+                          key={id}
+                          className="flex-align gap-8 position-relative mb-20"
+                        >
+                          <label
+                            className="position-absolute w-100 h-100 cursor-pointer"
+                            htmlFor={id}
                           >
-                            <i className="ph-fill ph-star" />
+                            {" "}
+                          </label>
+                          <div className="common-check common-radio mb-0">
+                            <input
+                              className="form-check-input"
+                              type="radio"
+                              name="ratingMin"
+                              id={id}
+                              value={bucket.stars}
+                              defaultChecked={ratingMin === bucket.stars}
+                            />
+                          </div>
+                          <div
+                            className="progress w-100 bg-gray-100 rounded-pill h-8"
+                            role="progressbar"
+                            aria-label={`${bucket.stars} estrellas o más`}
+                            aria-valuenow={bucket.percent}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                          >
+                            <div
+                              className="progress-bar bg-main-600 rounded-pill"
+                              style={{ width: `${bucket.percent}%` }}
+                            />
+                          </div>
+                          <div className="flex-align gap-4">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              <span
+                                key={i}
+                                className={`text-xs fw-medium d-flex ${
+                                  i < bucket.stars ? "text-warning-600" : "text-gray-400"
+                                }`}
+                              >
+                                <i className="ph-fill ph-star" />
+                              </span>
+                            ))}
+                          </div>
+                          <span className="text-gray-900 flex-shrink-0">
+                            {bucket.count}
                           </span>
-                        ))}
-                      </div>
-                      <span className="text-gray-900 flex-shrink-0">
-                        {filter.count}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex-align gap-16 flex-wrap mb-32">
+                    <button type="submit" className="btn btn-main h-40 flex-align">
+                      Filtrar
+                    </button>
+                    {hasActiveFilters && (
+                      <Link href={clearFiltersHref} className="text-sm text-gray-500 hover-text-main-600">
+                        Limpiar filtros
+                      </Link>
+                    )}
+                  </div>
+                </form>
               </div>
             </div>
             {/* Sidebar End */}
@@ -293,6 +436,14 @@ export default async function ShopPage({
                     <ProductCard key={product.id} product={product} />
                   ))}
                 </div>
+              ) : hasActiveFilters ? (
+                <p className="text-gray-500">
+                  Ningún producto coincide con esos filtros.{" "}
+                  <Link href={clearFiltersHref} className="text-main-600 fw-medium">
+                    Quitar filtros
+                  </Link>
+                  .
+                </p>
               ) : (
                 <p className="text-gray-500">
                   No hay productos {categoria ? "en esta categoría" : "todavía"}.

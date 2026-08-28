@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Script from "next/script";
+import DataTableInit from "@/components/admin/DataTableInit";
 
 // Root layout aparte del de la tienda (app/(site)/layout.tsx). Next.js
 // soporta "multiple root layouts" con route groups: como (admin) y (site)
@@ -37,6 +38,7 @@ export default function AdminRootLayout({
       </head>
       <body>
         {children}
+        <DataTableInit />
 
         {/* Antes estos <Script> usaban strategy="beforeInteractive". Con
             Next 16 + React 19 eso dispara en el overlay de dev "Encountered

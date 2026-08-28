@@ -1,18 +1,17 @@
-"use client";
-
-import type { FormEvent } from "react";
 import Link from "next/link";
 
-// Portado de contact.html (líneas ~687-827): breadcrumb + formulario de
-// contacto ("Hacer una Solicitud Personalizada") + tarjeta de datos de
-// contacto + sección de envío genérica.
+// Portado de contact.html (líneas ~687-827): breadcrumb + tarjeta de datos
+// de contacto + sección de envío genérica.
+//
+// El formulario "Hacer una Solicitud Personalizada" que traía la plantilla
+// se quitó a propósito: no mandaba a ningún lado (el submit solo hacía
+// preventDefault, nunca se conectó a nada real) y se decidió no
+// completarlo — se prioriza mostrar bien la tarjeta de contacto en vez de
+// dejar un formulario que aparenta funcionar pero no hace nada.
 //
 // El mapa NO va en esta página: tiene más sentido mostrarlo en /checkout,
 // cuando el cliente ya está confirmando su dirección de entrega, así que se
 // movió para allá (ver app/checkout/page.tsx).
-//
-// TODO: falta la API route para procesar el formulario (envío de correo /
-// guardado en base de datos); por ahora el submit solo hace preventDefault.
 const SHIPPING_ITEMS = [
   { icon: "ph-car-profile", title: "Envío Gratis" },
   { icon: "ph-hand-heart", title: "Satisfacción 100%" },
@@ -21,11 +20,6 @@ const SHIPPING_ITEMS = [
 ];
 
 export default function ContactPage() {
-  function handleSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    // TODO: conectar a una API route real (envío de correo o guardado en BD)
-  }
-
   return (
     <>
       <div className="breadcrumb mb-0 py-26 bg-main-two-50">
@@ -50,77 +44,8 @@ export default function ContactPage() {
 
       <section className="contact py-80">
         <div className="container container-lg">
-          <div className="row gy-5">
-            <div className="col-lg-8">
-              <div className="contact-box border border-gray-100 rounded-16 px-24 py-40">
-                <form onSubmit={handleSubmit}>
-                  <h6 className="mb-32">Hacer una Solicitud Personalizada</h6>
-                  <div className="row gy-4">
-                    <div className="col-sm-6 col-xs-6">
-                      <label
-                        htmlFor="name"
-                        className="flex-align gap-4 text-sm font-heading-two text-gray-900 fw-semibold mb-4"
-                      >
-                        Nombre Completo <span className="text-danger text-xl line-height-1">*</span>
-                      </label>
-                      <input type="text" className="common-input px-16" id="name" placeholder="Nombre completo" />
-                    </div>
-                    <div className="col-sm-6 col-xs-6">
-                      <label
-                        htmlFor="email"
-                        className="flex-align gap-4 text-sm font-heading-two text-gray-900 fw-semibold mb-4"
-                      >
-                        Correo Electrónico <span className="text-danger text-xl line-height-1">*</span>
-                      </label>
-                      <input
-                        type="email"
-                        className="common-input px-16"
-                        id="email"
-                        placeholder="Correo electrónico"
-                      />
-                    </div>
-                    <div className="col-sm-6 col-xs-6">
-                      <label
-                        htmlFor="phone"
-                        className="flex-align gap-4 text-sm font-heading-two text-gray-900 fw-semibold mb-4"
-                      >
-                        Número de Teléfono <span className="text-danger text-xl line-height-1">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        className="common-input px-16"
-                        id="phone"
-                        placeholder="Número de teléfono"
-                      />
-                    </div>
-                    <div className="col-sm-6 col-xs-6">
-                      <label
-                        htmlFor="subject"
-                        className="flex-align gap-4 text-sm font-heading-two text-gray-900 fw-semibold mb-4"
-                      >
-                        Asunto <span className="text-danger text-xl line-height-1">*</span>
-                      </label>
-                      <input type="text" className="common-input px-16" id="subject" placeholder="Asunto" />
-                    </div>
-                    <div className="col-sm-12">
-                      <label
-                        htmlFor="message"
-                        className="flex-align gap-4 text-sm font-heading-two text-gray-900 fw-semibold mb-4"
-                      >
-                        Mensaje <span className="text-danger text-xl line-height-1">*</span>
-                      </label>
-                      <textarea className="common-input px-16" id="message" placeholder="Escribe tu mensaje" />
-                    </div>
-                    <div className="col-sm-12 mt-32">
-                      <button type="submit" className="btn btn-main py-18 px-32 rounded-8">
-                        Solicitar Presupuesto
-                      </button>
-                    </div>
-                  </div>
-                </form>
-              </div>
-            </div>
-            <div className="col-lg-4">
+          <div className="row justify-content-center">
+            <div className="col-lg-5 col-md-8">
               <div className="contact-box border border-gray-100 rounded-16 px-24 py-40">
                 <h6 className="mb-48">Ponte en Contacto</h6>
                 <div className="flex-align gap-16 mb-16">
@@ -168,7 +93,6 @@ export default function ContactPage() {
               </div>
             </div>
           </div>
-
         </div>
       </section>
 

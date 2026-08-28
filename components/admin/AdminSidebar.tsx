@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import type { Role } from "@/lib/auth/session";
 
 // Nota sobre navegación: se usan <a> normales (no next/link) a propósito en
 // todo el admin. La plantilla original es un sitio multi-página clásico
@@ -19,7 +20,12 @@ type NavSection = {
   links?: NavLink[];
 };
 
-const NAV: NavSection[] = [
+// "adminOnly" marca las secciones que Reportes y Usuarios (borrar producto
+// se controla aparte, dentro de /admin/productos) — el staff no debe ni
+// verlas en el menú. Esto es solo la capa visual: el acceso real está
+// forzado por requireRole(["admin"]) dentro de cada página (defensa en
+// profundidad, ver lib/auth/session.ts).
+const NAV: (NavSection & { adminOnly?: boolean })[] = [
   { label: "Dashboard", icon: "dashboard.svg", href: "/admin" },
   {
     label: "Productos",
@@ -36,13 +42,20 @@ const NAV: NavSection[] = [
     href: "/admin/ventas",
   },
   {
+    label: "Reseñas",
+    icon: "quotation1.svg",
+    href: "/admin/resenas",
+  },
+  {
     label: "Reportes",
     icon: "printer.svg",
     href: "/admin/reportes",
+    adminOnly: true,
   },
   {
     label: "Usuarios",
     icon: "users1.svg",
+    adminOnly: true,
     links: [
       { href: "/admin/usuarios", label: "Lista de usuarios" },
       { href: "/admin/usuarios/nuevo", label: "Nuevo usuario" },
@@ -50,8 +63,9 @@ const NAV: NavSection[] = [
   },
 ];
 
-export default function AdminSidebar() {
+export default function AdminSidebar({ role }: { role: Role }) {
   const pathname = usePathname();
+  const visibleNav = NAV.filter((section) => !section.adminOnly || role === "admin");
 
   return (
     <div className="sidebar" id="sidebar">
@@ -63,7 +77,7 @@ export default function AdminSidebar() {
       <div className="sidebar-inner" style={{ overflowY: "auto", height: "100%" }}>
         <div id="sidebar-menu" className="sidebar-menu">
           <ul>
-            {NAV.map((section) => {
+            {visibleNav.map((section) => {
               if (section.href) {
                 const active = pathname === section.href;
                 return (

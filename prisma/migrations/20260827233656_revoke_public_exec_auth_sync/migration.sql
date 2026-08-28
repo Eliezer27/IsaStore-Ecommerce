@@ -1,0 +1,17 @@
+-- El Security Advisor de Supabase marcó que public.handle_auth_user_sync()
+-- (el trigger que sincroniza auth.users -> public.users, ver
+-- prisma/migrations/20260827060011_supabase_auth_sync) queda expuesta como
+-- endpoint de la API REST (/rest/v1/rpc/handle_auth_user_sync), invocable
+-- incluso por el rol "anon" (cualquiera sin sesión) porque PostgREST expone
+-- automáticamente cualquier función del schema "public" salvo que se le
+-- quite el permiso explícitamente. Como la función es SECURITY DEFINER
+-- (corre con privilegios elevados), dejarla así es una mala práctica de
+-- seguridad aunque hoy no se pueda explotar de verdad (la función usa
+-- variables de trigger como NEW, que no existen si se llama directo por
+-- fuera de un trigger — llamarla por la API fallaría igual, pero no
+-- debería ni figurar en la lista de endpoints públicos).
+--
+-- Esto solo le quita el permiso de ejecución directa vía API a "anon" y
+-- "authenticated" — el trigger en sí sigue funcionando igual, porque los
+-- triggers no pasan por permisos de EXECUTE de esos roles.
+revoke execute on function public.handle_auth_user_sync() from public, anon, authenticated;

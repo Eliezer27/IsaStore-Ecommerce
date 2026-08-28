@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "../globals.css";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
+import { getCategoryTree } from "@/lib/categories";
 
 export const metadata: Metadata = {
   title: "IsaStore — Accesorios y regalos",
@@ -9,7 +10,14 @@ export const metadata: Metadata = {
     "Ropa, cadenas y llaveros, peluches y juguetes, collares, maquillaje y accesorios. Envíos en Nicaragua.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // Se carga una sola vez acá (server component) y se pasa como prop al
+  // header y al footer, para no repetir la misma consulta dos veces por
+  // página. El header sigue siendo "use client" (necesita useState para los
+  // menús), así que recibe las categorías ya resueltas en vez de leerlas él
+  // mismo.
+  const categories = await getCategoryTree();
+
   return (
     <html lang="es">
       <head>
@@ -27,9 +35,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css" />
       </head>
       <body>
-        <SiteHeader />
+        <SiteHeader categories={categories} />
         <main>{children}</main>
-        <SiteFooter />
+        <SiteFooter categories={categories} />
       </body>
     </html>
   );

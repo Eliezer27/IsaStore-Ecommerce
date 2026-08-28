@@ -15,14 +15,20 @@ create extension if not exists "pgcrypto"; -- para gen_random_uuid()
 -- ------------------------------------------------------------
 -- USUARIOS Y DIRECCIONES  (usados en account.html / checkout.html)
 -- ------------------------------------------------------------
+-- El id de esta tabla es el MISMO id que auth.users.id de Supabase Auth.
+-- Un trigger (ver prisma/migrations/20260827060011_supabase_auth_sync)
+-- mantiene esta fila en sync automáticamente: se crea sola cuando alguien
+-- se registra en /cuenta o el admin invita a alguien del staff desde
+-- /admin/usuarios. password_hash ya no se usa (las contraseñas viven en
+-- auth.users, que administra Supabase) — queda la columna por compatibilidad.
 create table users (
     id              uuid primary key default gen_random_uuid(),
     email           varchar(255) not null unique,
-    password_hash   varchar(255),              -- null si usa login social/Supabase Auth
+    password_hash   varchar(255),              -- sin uso: las contraseñas viven en auth.users
     first_name      varchar(100),
     last_name       varchar(100),
     phone           varchar(30),
-    role            varchar(20) not null default 'customer', -- customer | admin
+    role            varchar(20) not null default 'customer', -- customer | staff | admin
     is_active       boolean not null default true,
     created_at      timestamptz not null default now(),
     updated_at      timestamptz not null default now()

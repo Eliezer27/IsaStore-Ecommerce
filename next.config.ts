@@ -24,6 +24,19 @@ const nextConfig: NextConfig = {
   // si con Turbopack aparece "Cannot find module '.prisma/client/default'",
   // ver la nota en README sobre turbopack.resolveAlias.
   serverExternalPackages: ["@prisma/client", "pg"],
+  experimental: {
+    serverActions: {
+      // Los formularios de producto/categoría suben imágenes como
+      // multipart/form-data a través de Server Actions (createProduct,
+      // updateProduct). El límite por defecto de Next.js para el body de
+      // una Server Action es 1MB — sin este override, subir cualquier
+      // imagen de tamaño normal tira "Body exceeded 1 MB limit.". Este
+      // valor tiene que quedar por ENCIMA de MAX_UPLOAD_FILE_SIZE_MB
+      // (lib/admin/upload-constants.ts, hoy 20MB): si se sube ese límite
+      // de nuevo, hay que subir este también.
+      bodySizeLimit: "25mb",
+    },
+  },
 };
 
 export default nextConfig;

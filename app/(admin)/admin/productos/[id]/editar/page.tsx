@@ -17,7 +17,15 @@ export default async function EditProductPage({
       where: { id },
       include: { images: { orderBy: { position: "asc" }, take: 1 } },
     }),
-    prisma.category.findMany({ orderBy: { name: "asc" } }).catch(() => []),
+    prisma.category
+      .findMany({
+        where: { parentId: null },
+        include: {
+          children: { orderBy: [{ position: "asc" }, { name: "asc" }] },
+        },
+        orderBy: [{ position: "asc" }, { name: "asc" }],
+      })
+      .catch(() => []),
   ]);
 
   if (!product) {
@@ -46,6 +54,8 @@ export default async function EditProductPage({
           compareAtPrice: product.compareAtPrice ? Number(product.compareAtPrice) : null,
           stock: product.stock,
           shortDescription: product.shortDescription,
+          description: product.description,
+          attributes: product.attributes as Record<string, unknown>,
           categoryId: product.categoryId,
           isActive: product.isActive,
           isFeatured: product.isFeatured,

@@ -1,12 +1,15 @@
 import Link from "next/link";
-import { CATEGORIES } from "@/lib/categories";
+import type { Category } from "@/lib/categories";
 
 // Footer portado de la plantilla original (index-three.html, líneas
 // ~8612-8814). Los links de "Sobre nosotros" / "Información" que en el demo
 // apuntaban todos a shop.html (relleno) se dejan igual acá; los que sí
 // tienen página real en este proyecto (cuenta, carrito, favoritos, contacto)
 // quedan enlazados a su ruta real.
-export default function SiteFooter() {
+//
+// Las categorías las resuelve el layout contra la base de datos y las pasa
+// como prop (ver app/(site)/layout.tsx).
+export default function SiteFooter({ categories }: { categories: Category[] }) {
   return (
     <footer className="footer py-80 overflow-hidden">
       <div className="container container-lg">
@@ -46,7 +49,7 @@ export default function SiteFooter() {
           <div className="footer-item">
             <h6 className="footer-item__title">Categorías</h6>
             <ul className="footer-menu">
-              {CATEGORIES.slice(0, 4).map((cat) => (
+              {categories.slice(0, 4).map((cat) => (
                 <li key={cat.slug} className="mb-16">
                   <Link
                     href={`/shop?categoria=${cat.slug}`}

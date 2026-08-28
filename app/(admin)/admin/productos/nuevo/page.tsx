@@ -6,7 +6,17 @@ export const dynamic = "force-dynamic";
 
 async function getCategories() {
   try {
-    return await prisma.category.findMany({ orderBy: { name: "asc" } });
+    // Solo categorías de nivel superior, con sus subcategorías anidadas —
+    // ProductForm arma un <select> con <optgroup> a partir de esto, para
+    // poder asignar el producto a una categoría o a una subcategoría
+    // específica sin que sea obligatorio.
+    return await prisma.category.findMany({
+      where: { parentId: null },
+      include: {
+        children: { orderBy: [{ position: "asc" }, { name: "asc" }] },
+      },
+      orderBy: [{ position: "asc" }, { name: "asc" }],
+    });
   } catch {
     return [];
   }

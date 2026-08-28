@@ -1,4 +1,7 @@
 import { prisma } from "@/lib/prisma";
+import { requireRole } from "@/lib/auth/session";
+import { deleteStaffUser } from "@/lib/admin/actions";
+import DeleteButton from "@/components/admin/DeleteButton";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +18,9 @@ async function getUsers() {
 }
 
 export default async function AdminUsersPage() {
+  // Usuarios (ver/crear cuentas de staff) es solo para admin.
+  await requireRole(["admin"]);
+
   const users = await getUsers();
 
   return (
@@ -47,6 +53,7 @@ export default async function AdminUsersPage() {
                   <th>Rol</th>
                   <th>Estado</th>
                   <th>Registrado</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -58,7 +65,15 @@ export default async function AdminUsersPage() {
                     <td>{u.email}</td>
                     <td>{u.phone ?? "—"}</td>
                     <td>
-                      <span className={`badge ${u.role === "admin" ? "bg-primary" : "bg-secondary"}`}>
+                      <span
+                        className={`badge ${
+                          u.role === "admin"
+                            ? "bg-primary"
+                            : u.role === "staff"
+                              ? "bg-info"
+                              : "bg-secondary"
+                        }`}
+                      >
                         {u.role}
                       </span>
                     </td>
@@ -68,6 +83,15 @@ export default async function AdminUsersPage() {
                       </span>
                     </td>
                     <td>{new Date(u.createdAt).toLocaleDateString("es-NI")}</td>
+                    <td>
+                      {u.role === "staff" && (
+                        <DeleteButton
+                          id={u.id}
+                          action={deleteStaffUser}
+                          confirmLabel={`¿Eliminar la cuenta de staff "${u.email}"? Esta acción no se puede deshacer.`}
+                        />
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

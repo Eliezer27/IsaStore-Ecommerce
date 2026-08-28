@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import AddToCartButton from "@/components/AddToCartButton";
+import WishlistButton from "@/components/WishlistButton";
 import ProductGallery from "@/components/ProductGallery";
 import ProductTabs from "@/components/ProductTabs";
 
@@ -202,12 +203,13 @@ export default async function ProductDetailPage({
                         image={mainImage}
                       />
                       <div className="flex-align gap-12">
-                        <Link
-                          href="/favoritos"
-                          className="w-52 h-52 bg-main-50 text-main-600 text-xl hover-bg-main-600 hover-text-white flex-center rounded-circle"
-                        >
-                          <i className="ph ph-heart" />
-                        </Link>
+                        <WishlistButton
+                          productId={product.id}
+                          name={product.name}
+                          slug={product.slug}
+                          price={price}
+                          image={mainImage}
+                        />
                       </div>
                     </div>
 
@@ -257,6 +259,8 @@ export default async function ProductDetailPage({
           </div>
 
           <ProductTabs
+            productId={product.id}
+            productSlug={product.slug}
             description={product.description}
             attributes={attributes}
             reviews={product.reviews}

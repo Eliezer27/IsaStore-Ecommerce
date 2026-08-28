@@ -22,6 +22,13 @@ datasource db {
 // ------------------------------------------------------------
 // USUARIOS Y DIRECCIONES  (account.html / checkout.html)
 // ------------------------------------------------------------
+// El id de esta tabla es el MISMO id que auth.users.id de Supabase Auth: un
+// trigger en la base (prisma/migrations/20260827060011_supabase_auth_sync)
+// crea/actualiza automáticamente la fila acá cada vez que alguien se
+// registra en /cuenta o el admin invita a alguien del staff desde
+// /admin/usuarios. passwordHash ya no se usa (Supabase Auth guarda las
+// contraseñas en auth.users, no acá) — se deja la columna por compatibilidad
+// pero no se escribe desde la app.
 model User {
   id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email        String   @unique @db.VarChar(255)
@@ -29,7 +36,7 @@ model User {
   firstName    String?  @map("first_name") @db.VarChar(100)
   lastName     String?  @map("last_name") @db.VarChar(100)
   phone        String?  @db.VarChar(30)
-  role         String   @default("customer") @db.VarChar(20) // customer | admin
+  role         String   @default("customer") @db.VarChar(20) // customer | staff | admin
   isActive     Boolean  @default(true) @map("is_active")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt    DateTime @default(now()) @map("updated_at") @db.Timestamptz()

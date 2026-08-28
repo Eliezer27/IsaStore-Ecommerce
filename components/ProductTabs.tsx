@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import WriteReviewForm from "./WriteReviewForm";
 
 type Review = {
   id: string;
@@ -15,12 +16,16 @@ type Review = {
 // manejaba con data-bs-toggle="pill" de bootstrap.bundle.min.js (no
 // cargado); acá se reemplaza por un useState simple.
 export default function ProductTabs({
+  productId,
+  productSlug,
   description,
   attributes,
   reviews,
   ratingAvg,
   ratingCount,
 }: {
+  productId: string;
+  productSlug: string;
   description: string | null;
   attributes: Record<string, unknown>;
   reviews: Review[];
@@ -146,9 +151,7 @@ export default function ProductTabs({
                         </div>
                       ))
                     )}
-                    {/* Nota: el formulario de "Escribir una reseña" del
-                        template no se incluye porque todavía no existe un
-                        endpoint para crear reseñas. */}
+                    <WriteReviewForm productId={productId} productSlug={productSlug} />
                   </div>
                   <div className="col-lg-6">
                     <div className="ms-xxl-5">

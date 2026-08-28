@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import AdminSalesChart from "@/components/admin/AdminSalesChart";
+import { requireRole } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,7 @@ const PAYMENT_METHOD_LABEL: Record<string, string> = {
   check: "Cheque",
   cod: "Contra entrega",
   paypal: "PayPal",
+  cash_in_store: "Efectivo en tienda",
 };
 
 const MES_LABEL = [
@@ -157,6 +159,11 @@ export default async function AdminReportsPage({
 }: {
   searchParams: Promise<{ desde?: string; hasta?: string }>;
 }) {
+  // Reportes es solo para admin — el middleware (proxy.ts) ya deja pasar a
+  // cualquier staff logueado hasta acá, así que esta es la segunda capa que
+  // de verdad filtra por rol (ver lib/auth/session.ts).
+  await requireRole(["admin"]);
+
   const params = await searchParams;
 
   const today = new Date();
