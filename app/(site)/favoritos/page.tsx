@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useWishlistStore } from "@/lib/wishlist-store";
 import { useCartStore } from "@/lib/cart-store";
+import { notify } from "@/lib/toast-store";
 
 function formatPrice(price: number) {
   return new Intl.NumberFormat("es-NI", {
@@ -84,7 +85,10 @@ export default function WishlistPage() {
                               <button
                                 type="button"
                                 className="remove-tr-btn flex-align gap-12 hover-text-danger-600"
-                                onClick={() => removeItem(item.productId)}
+                                onClick={() => {
+                                  removeItem(item.productId);
+                                  notify(`${item.name} quitado de favoritos`, "info");
+                                }}
                                 aria-label={`Quitar ${item.name} de deseos`}
                               >
                                 <i className="ph ph-x-circle text-2xl d-flex" />
@@ -120,15 +124,16 @@ export default function WishlistPage() {
                               <button
                                 type="button"
                                 className="btn btn-main rounded-8 px-24 py-11 flex-align gap-8"
-                                onClick={() =>
+                                onClick={() => {
                                   addToCart({
                                     productId: item.productId,
                                     name: item.name,
                                     slug: item.slug,
                                     price: item.price,
                                     image: item.image,
-                                  })
-                                }
+                                  });
+                                  notify(`${item.name} añadido al carrito`);
+                                }}
                               >
                                 <i className="ph ph-shopping-cart" />
                                 Agregar al carrito

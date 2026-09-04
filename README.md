@@ -32,9 +32,15 @@ sesión de autenticación y sus propias reglas de acceso (ver
 - **Bootstrap 5** — CSS del template original (tienda), servido desde
   `/public/assets`; el panel admin usa una plantilla aparte (DreamsPOS) en
   `/public/admin-assets`
-- **PayPal** (`@paypal/react-paypal-js`) y **Google Maps**
-  (`@react-google-maps/api`) — paquetes instalados, integración pendiente
-  (ver [Estado del proyecto](#estado-del-proyecto))
+- **PayPal** (`@paypal/react-paypal-js` en el front + REST Orders API v2 en el
+  server) — cobro real de pedidos en el `/checkout`, ya integrado; funciona en
+  sandbox y en live según `PAYPAL_MODE` (ver
+  [Estado del proyecto](#estado-del-proyecto))
+- **Leaflet** (`react-leaflet` + tiles de OpenStreetMap) — mapa interactivo
+  en el `/checkout` para que el cliente confirme el punto exacto de entrega;
+  es gratis y **no** necesita API key
+- **Google Maps** (`@react-google-maps/api`) — instalado para el mapa de
+  `/contacto`, esa integración sigue pendiente
 
 No hay una suite de pruebas automatizadas (no hay Jest/Vitest/Playwright
 configurado todavía).
@@ -77,15 +83,21 @@ app/
   (admin)/           panel: admin-login, admin/ (dashboard, productos,
                      categorías, ventas, reportes, reseñas, usuarios)
   api/auth/          logout unificado (cierra la sesión del scope indicado)
+  api/paypal/        crear y capturar la orden de PayPal (Orders API v2)
 components/          componentes de la tienda + components/admin/
+                     (PayPalCheckout, DeliveryMap/DeliveryMapInner, Toaster)
 lib/
   actions.ts          server actions públicas (signIn, signUp, createReview)
   admin/              server actions y utilidades del panel
   auth/               sesión actual, traducción de errores de Supabase
-  checkout/           createOrder (crea el pedido con su método de pago)
+  checkout/           actions.ts (efectivo) + order.ts (precio y persistencia
+                       compartidos entre efectivo y PayPal)
+  paypal/             cliente REST de PayPal (token OAuth, crear/capturar
+                       orden, conversión NIO->USD)
   supabase/           clientes de Supabase (browser, server, admin, middleware)
   cart-store.ts       carrito (Zustand + localStorage)
   wishlist-store.ts   favoritos (Zustand + localStorage)
+  toast-store.ts      avisos flotantes / notificaciones (Zustand)
   categories.ts       árbol de categorías
   prisma.ts           cliente Prisma (adapter-pg)
 prisma/
@@ -135,7 +147,9 @@ cd IsaStore-Ecommerce
 npm install
 cp .env.example .env.local   # completar según la sección de abajo
 npx prisma generate
-npx prisma db push           # crea las tablas (alternativa: correr prisma/schema.sql a mano)
+npx prisma migrate deploy    # crea las tablas + el trigger de sincronización
+                             # con Supabase Auth (recomendado sobre `db push`,
+                             # que NO aplica ese trigger)
 npm run dev
 ```
 
@@ -155,12 +169,21 @@ grupo:
   login/registro): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
   `SUPABASE_SERVICE_ROLE_KEY` (esta última nunca debe llegar al navegador —
   es la que puede crear staff y asignar roles).
-- **Google Maps** — `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` (habilitar Maps
-  JavaScript API, Places API y Geocoding API). Todavía no está conectada en
-  el código (ver estado del proyecto).
-- **PayPal** — `PAYPAL_MODE`, `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`,
-  `NEXT_PUBLIC_PAYPAL_CLIENT_ID`, `PAYPAL_WEBHOOK_ID`. Con estas vacías, el
-  checkout muestra el botón de PayPal deshabilitado ("Próximamente").
+- **PayPal** — `PAYPAL_MODE` (`sandbox` o `live`), `PAYPAL_CLIENT_ID`,
+  `PAYPAL_CLIENT_SECRET`, `NEXT_PUBLIC_PAYPAL_CLIENT_ID` (el mismo Client ID,
+  este va al navegador) y `PAYPAL_WEBHOOK_ID` (opcional, solo si se agrega el
+  webhook). Con `PAYPAL_CLIENT_ID`/`SECRET` vacías, el checkout muestra el
+  botón de PayPal deshabilitado ("Próximamente"); con credenciales válidas,
+  aparecen los botones de PayPal y el cobro es real.
+- **Conversión de moneda** — `NIO_TO_USD_RATE` (obligatoria para PayPal). Los
+  precios del catálogo están en NIO (córdoba), pero PayPal no admite NIO como
+  moneda de cobro, así que el total se convierte a USD con esta tasa fija al
+  momento de cobrar (ej. `0.027` ≈ 1 USD por cada ~36.6 NIO).
+- **Leaflet / mapa de entrega** — no necesita ninguna variable: usa tiles de
+  OpenStreetMap directamente.
+- **Google Maps** — `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` (para el mapa de
+  `/contacto`, todavía pendiente). El mapa del `/checkout` ya NO usa Google:
+  usa Leaflet (ver arriba).
 - **Correo (SMTP)** — pensado para las confirmaciones de pedido por correo;
   las variables ya están en `.env.example` pero el envío de correos
   todavía no está implementado en el código (ver estado del proyecto).
@@ -215,13 +238,22 @@ paso puntual va a fallar aunque la configuración esté bien.
 
 - Catálogo (`/shop`, `/producto/[slug]`) con filtro por categoría,
   subcategoría, precio y rating.
-- Carrito (`/carrito`) y wishlist (`/favoritos`), ambos en `localStorage`.
+- Carrito (`/carrito`) y wishlist (`/favoritos`), ambos en `localStorage`,
+  con **avisos flotantes** (toasts) al agregar/quitar productos
+  (`lib/toast-store.ts` + `components/Toaster.tsx`).
 - Registro/login real de clientes (`/cuenta`) y de staff/admin
   (`/admin-login`), con Supabase Auth y sesiones separadas.
-- Checkout con un método de pago activo: **efectivo en tienda** (el pedido
-  se marca pagado al crearse, porque el cliente paga al recoger en
-  persona). El botón de **PayPal** está en la UI pero deshabilitado hasta
-  cargar credenciales reales.
+- Checkout con **dos métodos de pago activos**:
+  - **Efectivo en tienda** — el pedido se marca pagado al crearse (el cliente
+    paga al recoger en persona).
+  - **PayPal** — cobro real vía Orders API v2: el server crea la orden
+    (`/api/paypal/create-order`), el cliente aprueba, y el server la captura
+    (`/api/paypal/capture-order`) creando el pedido + el registro `Payment`
+    solo si la captura vuelve `COMPLETED`. El total (en NIO) se convierte a
+    USD con `NIO_TO_USD_RATE`. El precio siempre se recalcula en el servidor.
+- **Mapa de entrega en el `/checkout`** — mapa interactivo con Leaflet +
+  OpenStreetMap (sin API key): el cliente marca/arrastra el pin y las
+  coordenadas se guardan en `addresses.lat`/`lng`.
 - Reseñas de producto (`WriteReviewForm`), se publican sin aprobación
   manual.
 - Panel admin: productos (alta/edición/borrado), categorías/subcategorías,
@@ -231,17 +263,16 @@ paso puntual va a fallar aunque la configuración esté bien.
 
 ### Pendiente
 
-- **Cobro real con PayPal** — conectar el botón (Orders API v2: crear y
-  capturar la orden desde el servidor) y, si se quiere una confirmación
-  confiable sin depender del navegador del cliente, un webhook de PayPal.
-  La tabla `Payment` y el campo `Order.paymentStatus` ya están listos para
-  recibir esto.
-- **Correo de confirmación de pedido** — las variables SMTP ya están en
-  `.env.example`, pero hoy no se envía ningún correo al completar un
-  pedido (solo se muestra un modal en pantalla).
-- **Mapa de Google** en `/contacto` y autocompletado de dirección en
-  `/checkout` — el paquete está instalado, la UI tiene el espacio
-  reservado ("Mapa próximamente"), falta la integración.
+- **Webhook de PayPal** (opcional) — el cobro ya funciona capturando desde el
+  navegador; un webhook (`PAYPAL_WEBHOOK_ID`) daría una confirmación más
+  confiable sin depender del cliente. La tabla `Payment` ya guarda la
+  respuesta cruda de la API para auditoría.
+- **Correo de confirmación de pedido** — las variables SMTP ya están
+  documentadas, pero hoy no se envía ningún correo al completar un pedido
+  (solo se muestra un modal en pantalla).
+- **Mapa de Google en `/contacto`** y autocompletado de dirección — el
+  paquete está instalado y la UI tiene el espacio reservado. (El mapa del
+  `/checkout` ya está resuelto con Leaflet.)
 - **Productos relacionados** en la ficha de producto — no hay lógica de
   Prisma para esto todavía.
 - Migrar carrito/wishlist de `localStorage` a las tablas `Cart`/`Wishlist`

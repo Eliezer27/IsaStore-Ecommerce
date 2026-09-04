@@ -1,10 +1,19 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
 import { useCartStore } from "@/lib/cart-store";
 import { createOrder, type CheckoutFormState } from "@/lib/checkout/actions";
 import OrderSuccessModal from "@/components/OrderSuccessModal";
+import PayPalCheckout from "@/components/PayPalCheckout";
+import DeliveryMap from "@/components/DeliveryMap";
+import { notify } from "@/lib/toast-store";
+
+// Si hay un client id público de PayPal cargado, el checkout habilita el
+// método PayPal y muestra sus botones; si no, el radio queda inactivo
+// ("Próximamente"). El secreto NUNCA está acá — el cobro real lo hacen los
+// endpoints de servidor (app/api/paypal/*).
+const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ?? "";
 
 function formatPrice(price: number) {
   return new Intl.NumberFormat("es-NI", {
@@ -46,6 +55,12 @@ export default function CheckoutPage() {
   // así que ahí se vuelven a mostrar.
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("efectivo-tienda");
   const showShippingFields = paymentMethod !== "efectivo-tienda";
+  const paypalEnabled = PAYPAL_CLIENT_ID.length > 0;
+
+  // Éxito del pago con PayPal (flujo aparte del useActionState de efectivo):
+  // el endpoint de captura devuelve el orderNumber, que guardamos acá para
+  // mostrar el mismo OrderSuccessModal.
+  const [paypalOrderNumber, setPaypalOrderNumber] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     nombre: "",
@@ -57,21 +72,36 @@ export default function CheckoutPage() {
     email: "",
     notas: "",
   });
+  // Coordenadas elegidas en el mapa de Leaflet (DeliveryMap). Viajan al server
+  // como campos ocultos del form para guardarse en addresses.lat/lng.
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+
   const [state, formAction, pending] = useActionState<CheckoutFormState, FormData>(
     createOrder,
     null
   );
-  // El carrito se vacía apenas el pedido se crea con éxito, comparando
-  // contra el último estado ya manejado (en vez de un useEffect con
-  // setState/clear adentro, que dispara el lint rule
-  // react-hooks/set-state-in-effect — mismo patrón que WriteReviewForm.tsx).
-  const [handledState, setHandledState] = useState(state);
-  if (state !== handledState) {
-    setHandledState(state);
-    if (state && "success" in state) {
-      clearCart();
-    }
-  }
+  // Una vez cerrado el modal de éxito, no se vuelve a mostrar (el carrito ya
+  // quedó vacío).
+  const [dismissed, setDismissed] = useState(false);
+
+  const cashOrderNumber = state && "success" in state ? state.orderNumber : null;
+  const successOrderNumber = paypalOrderNumber ?? cashOrderNumber;
+
+  // El carrito se vacía cuando el pedido se crea con éxito (efectivo o PayPal).
+  // Se hace en un effect (después del render), NO en el cuerpo del componente:
+  // llamar a clearCart() durante el render actualizaba el store del carrito
+  // mientras React renderizaba CheckoutPage, lo que dispara el error "Cannot
+  // update a component (SiteHeader) while rendering CheckoutPage". clearCart es
+  // una acción de un store externo (no un setState de este componente), así que
+  // usarla en un effect es seguro.
+  useEffect(() => {
+    if (successOrderNumber) clearCart();
+  }, [successOrderNumber, clearCart]);
+
+  // Aviso flotante si el pedido falla (además del alert en línea de abajo).
+  useEffect(() => {
+    if (state && "error" in state) notify(state.error, "error");
+  }, [state]);
 
   function handleChange(field: keyof typeof form) {
     return (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -79,9 +109,16 @@ export default function CheckoutPage() {
     };
   }
 
-  if (state && "success" in state) {
+  function handlePaypalSuccess(orderNumber: string) {
+    setPaypalOrderNumber(orderNumber);
+  }
+
+  if (successOrderNumber && !dismissed) {
     return (
-      <OrderSuccessModal orderNumber={state.orderNumber} onClose={() => setHandledState(null)} />
+      <OrderSuccessModal
+        orderNumber={successOrderNumber}
+        onClose={() => setDismissed(true)}
+      />
     );
   }
 
@@ -232,25 +269,21 @@ export default function CheckoutPage() {
                       contact.html no había mapa embebido; tiene más sentido
                       acá, cuando el cliente ya está haciendo el pedido, que
                       en /contacto. */}
-                  {/* TODO: integrar @react-google-maps/api con Places Autocomplete
-                      aquí (NEXT_PUBLIC_GOOGLE_MAPS_API_KEY), para que el cliente
-                      pueda buscar y confirmar su dirección en el mapa y esas
-                      coordenadas se guarden en addresses.lat/lng. */}
+                  {/* Mapa interactivo (Leaflet, sin API key) para que el
+                      cliente confirme el punto exacto de entrega. Las
+                      coordenadas elegidas viajan al server en los campos
+                      ocultos lat/lng y se guardan en addresses.lat/lng. */}
                   {showShippingFields && (
                     <div className="col-12">
                       <div className="mb-8 mt-8">
                         <h6 className="text-lg mb-16">Confirma tu ubicación de entrega</h6>
-                        <div
-                          className="rounded-16 bg-gray-50 border border-gray-100 flex-center"
-                          style={{ height: 320 }}
-                        >
-                          <div className="text-center">
-                            <span className="text-4xl text-gray-400 d-block mb-8">
-                              <i className="ph ph-map-trifold" />
-                            </span>
-                            <p className="text-gray-500 mb-0">Mapa próximamente</p>
-                          </div>
-                        </div>
+                        <DeliveryMap value={coords} onChange={setCoords} />
+                        {coords && (
+                          <>
+                            <input type="hidden" name="lat" value={coords.lat} />
+                            <input type="hidden" name="lng" value={coords.lng} />
+                          </>
+                        )}
                       </div>
                     </div>
                   )}
@@ -368,22 +401,25 @@ export default function CheckoutPage() {
                           form="checkout-form"
                           checked={paymentMethod === "paypal"}
                           onChange={() => setPaymentMethod("paypal")}
-                          disabled
+                          disabled={!paypalEnabled}
                         />
                         <label
                           className="form-check-label fw-semibold text-neutral-600 flex-align gap-8"
                           htmlFor="payment-paypal"
                         >
                           PayPal
-                          <span className="badge bg-gray-100 text-gray-600 fw-medium">
-                            Próximamente
-                          </span>
+                          {!paypalEnabled && (
+                            <span className="badge bg-gray-100 text-gray-600 fw-medium">
+                              Próximamente
+                            </span>
+                          )}
                         </label>
                       </div>
                       <div className="payment-item__content px-16 py-24 rounded-8 bg-main-50 position-relative">
                         <p className="text-gray-800 mb-0">
-                          Todavía no está activo el cobro con PayPal. Por ahora elegí
-                          &ldquo;Efectivo en tienda&rdquo; si vas a pagar en persona.
+                          {paypalEnabled
+                            ? "Pagá con tu cuenta de PayPal o tarjeta. El cobro se hace en dólares (USD)."
+                            : "Todavía no está activo el cobro con PayPal. Por ahora elegí “Efectivo en tienda” si vas a pagar en persona."}
                         </p>
                       </div>
                     </div>
@@ -401,14 +437,26 @@ export default function CheckoutPage() {
                     </p>
                   </div>
 
-                  <button
-                    type="submit"
-                    form="checkout-form"
-                    className="btn btn-main mt-40 py-18 w-100 rounded-8 mt-56"
-                    disabled={pending}
-                  >
-                    {pending ? "Procesando..." : "Realizar Pedido"}
-                  </button>
+                  {paymentMethod === "paypal" && paypalEnabled ? (
+                    <PayPalCheckout
+                      clientId={PAYPAL_CLIENT_ID}
+                      cartLines={lines.map((l) => ({
+                        productId: l.productId,
+                        quantity: l.quantity,
+                      }))}
+                      shipping={{ ...form, lat: coords?.lat ?? null, lng: coords?.lng ?? null }}
+                      onSuccess={handlePaypalSuccess}
+                    />
+                  ) : (
+                    <button
+                      type="submit"
+                      form="checkout-form"
+                      className="btn btn-main mt-40 py-18 w-100 rounded-8 mt-56"
+                      disabled={pending}
+                    >
+                      {pending ? "Procesando..." : "Realizar Pedido"}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

@@ -5,6 +5,7 @@ import type { ProductCard as ProductCardType } from "@/lib/types";
 import { useCartStore } from "@/lib/cart-store";
 import { useWishlistStore } from "@/lib/wishlist-store";
 import { useHasMounted } from "@/lib/use-has-mounted";
+import { notify } from "@/lib/toast-store";
 
 // Tarjeta de producto portada de shop.html (líneas ~929-960): el layout real
 // es un div.product-card suelto (sin wrapper col-* de Bootstrap), porque
@@ -72,6 +73,12 @@ export default function ProductCard({ product }: { product: ProductCardType }) {
             price: product.price,
             image: product.image,
           });
+          notify(
+            wishlisted
+              ? `${product.name} quitado de favoritos`
+              : `${product.name} agregado a favoritos`,
+            "info"
+          );
         }}
         className={`product-card__wishlist w-40 h-40 flex-center rounded-circle text-lg position-absolute inset-inline-end-0 inset-block-start-0 mt-16 me-16 transition-2 ${
           showWishlisted
@@ -113,15 +120,16 @@ export default function ProductCard({ product }: { product: ProductCardType }) {
 
         <button
           type="button"
-          onClick={() =>
+          onClick={() => {
             addItem({
               productId: product.id,
               name: product.name,
               slug: product.slug,
               price: product.price,
               image: product.image,
-            })
-          }
+            });
+            notify(`${product.name} añadido al carrito`);
+          }}
           className="product-card__cart btn bg-gray-50 text-heading hover-bg-main-600 hover-text-white py-11 px-24 rounded-8 flex-center gap-8 fw-medium w-100 border-0"
         >
           Agregar al carrito <i className="ph ph-shopping-cart" />

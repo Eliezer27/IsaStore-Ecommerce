@@ -2,6 +2,7 @@
 
 import { useWishlistStore } from "@/lib/wishlist-store";
 import { useHasMounted } from "@/lib/use-has-mounted";
+import { notify } from "@/lib/toast-store";
 
 // Botón de "agregar a deseos" para la página de detalle de producto. Mismo
 // patrón que AddToCartButton: componente cliente separado porque la página
@@ -36,7 +37,13 @@ export default function WishlistButton({
       type="button"
       aria-label={showWishlisted ? "Quitar de deseos" : "Agregar a deseos"}
       aria-pressed={showWishlisted}
-      onClick={() => toggle({ productId, name, slug, price, image })}
+      onClick={() => {
+        toggle({ productId, name, slug, price, image });
+        notify(
+          wishlisted ? `${name} quitado de favoritos` : `${name} agregado a favoritos`,
+          "info"
+        );
+      }}
       className={`w-52 h-52 text-xl flex-center rounded-circle transition-2 ${
         showWishlisted
           ? "bg-main-two-600 text-white"

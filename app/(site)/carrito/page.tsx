@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCartStore } from "@/lib/cart-store";
+import { notify } from "@/lib/toast-store";
 
 function formatPrice(price: number) {
   return new Intl.NumberFormat("es-NI", {
@@ -102,7 +103,10 @@ export default function CartPage() {
                             <button
                               type="button"
                               className="remove-tr-btn flex-align gap-12 hover-text-danger-600"
-                              onClick={() => removeItem(line.productId)}
+                              onClick={() => {
+                                removeItem(line.productId);
+                                notify(`${line.name} eliminado del carrito`, "info");
+                              }}
                             >
                               <i className="ph ph-x-circle text-2xl d-flex" />
                               Eliminar

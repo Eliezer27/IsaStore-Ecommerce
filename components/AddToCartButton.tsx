@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useCartStore } from "@/lib/cart-store";
+import { notify } from "@/lib/toast-store";
 
 // Control de cantidad + botón "Add To Cart" portado de product-details.html
 // (líneas ~903-912): el quantity__minus/quantity__plus del template se
@@ -62,6 +63,11 @@ export default function AddToCartButton({
         className="btn btn-main rounded-pill flex-align d-inline-flex gap-8 px-48"
         onClick={() => {
           addItem({ productId, name, slug, price, image }, quantity);
+          notify(
+            quantity > 1
+              ? `${quantity} × ${name} añadidos al carrito`
+              : `${name} añadido al carrito`
+          );
           setAdded(true);
           setTimeout(() => setAdded(false), 1500);
         }}
